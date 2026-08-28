@@ -4285,53 +4285,54 @@ function subscriptionsSummary(allSubs, dateFilter){
   // "Total desembolsado" = soma de TODOS os pagamentos já registrados (histórico
   // de baixas de verdade), não o valor cadastrado. Se houver filtro de período,
   // some só os pagamentos feitos dentro dele.
+  // pagIdx guarda a posição no historicoPagamentos pra dar pra editar/excluir
+  // o lançamento direto pelo modal do card.
   let totalDesembolsado = 0;
   const detTotalDesembolsado = [];
-  allSubs.forEach(s=>(s.historicoPagamentos||[]).forEach(p=>{
+  allSubs.forEach(s=>(s.historicoPagamentos||[]).forEach((p,pi)=>{
     if(dateFilter.dataInicio && p.data < dateFilter.dataInicio) return;
     if(dateFilter.dataFim && p.data > dateFilter.dataFim) return;
     totalDesembolsado += Number(p.valor)||0;
-    detTotalDesembolsado.push({sub:s, data:p.data, valor:Number(p.valor)||0, tipo:'Pago'});
+    detTotalDesembolsado.push({sub:s, subId:s.id, pagIdx:pi, data:p.data, valor:Number(p.valor)||0, tipo:'Pago'});
   }));
 
-  // Métricas do mês corrente (calendário) — tudo que vence neste mês, pago ou não.
+  // Métricas do mês corrente (calendário).
   const curMonthPrefix = todayStr().slice(0,7); // "YYYY-MM"
   let pagoMes = 0;
   const detPagoMes = [];
   const pagasNesteMes = new Set();
-  allSubs.forEach(s=>(s.historicoPagamentos||[]).forEach(p=>{
+  allSubs.forEach(s=>(s.historicoPagamentos||[]).forEach((p,pi)=>{
     if(p.data && p.data.startsWith(curMonthPrefix)){
       pagoMes += Number(p.valor)||0;
-      detPagoMes.push({sub:s, data:p.data, valor:Number(p.valor)||0, tipo:'Pago'});
+      detPagoMes.push({sub:s, subId:s.id, pagIdx:pi, data:p.data, valor:Number(p.valor)||0, tipo:'Pago'});
       pagasNesteMes.add(s.id);
     }
   }));
-  // "A pagar no mes" = vence neste mes e AINDA nao foi paga neste mes. Sem o
-  // segundo teste, uma assinatura sem ciclo recorrente (pagamento unico)
+  // "A pagar no mês" = vence neste mês e AINDA não foi paga neste mês. Sem o
+  // segundo teste, uma assinatura sem ciclo recorrente (pagamento único)
   // entrava ao mesmo tempo em "a pagar" e em "pago" e dobrava o custo mensal.
   const detAPagarMes = allSubs
     .filter(s=>s.dataVencimento && s.dataVencimento.startsWith(curMonthPrefix) && !pagasNesteMes.has(s.id))
-    .map(s=>({sub:s, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:'A pagar'}));
+    .map(s=>({sub:s, subId:s.id, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:'A pagar'}));
   const aPagarMes = detAPagarMes.reduce((sum,r)=>sum+r.valor, 0);
   const custoMensal = aPagarMes + pagoMes;
 
   // Estimativa anual usa o valor normalizado por assinatura (mais estável que
   // projetar o mês corrente x12, que varia muito conforme o que cai nesse mês).
   const custoMensalEquivalente = activeIsh.reduce((sum,s)=>sum+subMonthlyEquivalent(s),0);
-
   const detCustoAnual = activeIsh
     .filter(s=>subMonthlyEquivalent(s)>0)
-    .map(s=>({sub:s, data:s.dataVencimento, valor:subMonthlyEquivalent(s)*12, tipo:subCycleMeta(s.ciclo).label+' · '+fmtBRL(subMonthlyEquivalent(s))+'/mes'}));
-  const detAtivas = activeIsh.map(s=>({sub:s, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:subStatusMeta(subEffectiveStatus(s)).label}));
+    .map(s=>({sub:s, subId:s.id, data:s.dataVencimento, valor:subMonthlyEquivalent(s)*12, tipo:subCycleMeta(s.ciclo).label+' · '+fmtBRL(subMonthlyEquivalent(s))+'/mês'}));
+  const detAtivas = activeIsh.map(s=>({sub:s, subId:s.id, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:subStatusMeta(subEffectiveStatus(s)).label}));
   const detVencidasPendentes = allSubs
     .filter(s=>['vencida','pendente'].includes(subEffectiveStatus(s)))
-    .map(s=>({sub:s, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:subStatusMeta(subEffectiveStatus(s)).label}));
-  // "Vencem em 30 dias" olha a propria data de vencimento. Antes usava
+    .map(s=>({sub:s, subId:s.id, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:subStatusMeta(subEffectiveStatus(s)).label}));
+  // "Vencem em 30 dias" olha a própria data de vencimento. Antes usava
   // subDaysUntilRenewal (vencimento + 1 ciclo inteiro), o que empurrava o prazo
   // pra frente demais e deixava o card em 0 mesmo com contas vencendo na semana.
   const detProximos = activeIsh
     .filter(s=>{ const d=subDaysUntilDue(s); return d!==null && d>=0 && d<=30; })
-    .map(s=>{ const d=subDaysUntilDue(s); return {sub:s, data:s.dataVencimento, valor:Number(s.valor)||0, tipo: d===0?'vence hoje':('em '+d+' dia(s)')}; });
+    .map(s=>{ const d=subDaysUntilDue(s); return {sub:s, subId:s.id, data:s.dataVencimento, valor:Number(s.valor)||0, tipo: d===0?'vence hoje':('em '+d+' dia(s)')}; });
 
   return {
     totalDesembolsado, custoMensal, pagoMes, aPagarMes,
@@ -4743,6 +4744,183 @@ async function importSubscriptionsExcel(file){
     render();
   });
 }
+// Volta o vencimento um ciclo. Serve pra desfazer uma baixa dada por engano
+// (o "dar baixa" empurra o vencimento pra frente; excluir só o pagamento
+// deixaria a data adiantada).
+function subRewindDueDate(dataVencimento, ciclo){
+  const months = SUB_CYCLE_MONTHS[ciclo];
+  if(!months || !dataVencimento) return dataVencimento;
+  const d = new Date(dataVencimento+'T00:00:00');
+  d.setMonth(d.getMonth()-months);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function subSyncUltimoPagamento(sub){
+  const h = Array.isArray(sub.historicoPagamentos) ? sub.historicoPagamentos : [];
+  sub.ultimoPagamento = h.length ? h[h.length-1].data : null;
+}
+function openEditPaymentModal(subId, pagIdx, voltarPara){
+  const s = state.subscriptions.find(x=>x.id===subId);
+  const p = s && Array.isArray(s.historicoPagamentos) ? s.historicoPagamentos[pagIdx] : null;
+  if(!p) return;
+  const html = `
+  <div class="modal-backdrop" id="pagEditBackdrop">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h3>Editar pagamento — ${escapeHtml(s.ferramenta||'')}</h3>
+        <button class="modal-close" id="pagEditClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        <div class="grid2">
+          <div class="field"><label for="pagEditData">Data do pagamento</label><input type="date" id="pagEditData" value="${escapeHtml(p.data||todayStr())}"></div>
+          <div class="field"><label for="pagEditValor">Valor pago (R$)</label><input type="number" id="pagEditValor" step="0.01" value="${Number(p.valor)||0}"></div>
+        </div>
+        <div class="hint-text">Isso altera apenas este lançamento do histórico. A data de vencimento da assinatura não muda.</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="pagEditCancel">Cancelar</button>
+        <button class="btn btn-primary" id="pagEditSave">${icon('check',15)} Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('modalRoot').innerHTML = html;
+  const voltar = ()=>{ if(voltarPara) openSubDetailModal(voltarPara); else document.getElementById('modalRoot').innerHTML=''; };
+  document.getElementById('pagEditClose').addEventListener('click', voltar);
+  document.getElementById('pagEditCancel').addEventListener('click', voltar);
+  document.getElementById('pagEditBackdrop').addEventListener('click', e=>{ if(e.target.id==='pagEditBackdrop') voltar(); });
+  document.getElementById('pagEditSave').addEventListener('click', async ()=>{
+    p.data = document.getElementById('pagEditData').value || p.data;
+    p.valor = Number(document.getElementById('pagEditValor').value) || 0;
+    subSyncUltimoPagamento(s);
+    await saveSubscriptions();
+    toast('Pagamento atualizado.');
+    render();
+    voltar();
+  });
+}
+function openDeletePaymentModal(subId, pagIdx, voltarPara){
+  const s = state.subscriptions.find(x=>x.id===subId);
+  const p = s && Array.isArray(s.historicoPagamentos) ? s.historicoPagamentos[pagIdx] : null;
+  if(!p) return;
+  const cycle = subCycleMeta(s.ciclo);
+  const html = `
+  <div class="modal-backdrop" id="pagDelBackdrop">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h3>Excluir pagamento</h3>
+        <button class="modal-close" id="pagDelClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin:0 0 12px;font-size:14.5px;line-height:1.6;color:var(--text-900);">
+          Excluir o pagamento de <strong>${fmtBRL(p.valor)}</strong> em <strong>${p.data?formatDateBR(p.data):'—'}</strong> de "${escapeHtml(s.ferramenta||'')}"?
+        </p>
+        ${cycle.days ? `
+        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13.5px;font-weight:600;cursor:pointer;">
+          <input type="checkbox" id="pagDelVoltar" checked style="margin-top:3px;">
+          <span>Voltar o vencimento um ciclo (${escapeHtml(cycle.label)})<br>
+            <span class="hint-text">Vencimento hoje: ${s.dataVencimento?formatDateBR(s.dataVencimento):'—'} → ficaria ${s.dataVencimento?formatDateBR(subRewindDueDate(s.dataVencimento, s.ciclo)):'—'}. Marque se esta baixa foi dada por engano.</span>
+          </span>
+        </label>` : `<div class="hint-text">Essa assinatura não tem ciclo recorrente, então o vencimento não é afetado.</div>`}
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="pagDelCancel">Cancelar</button>
+        <button class="btn" style="background:var(--red);color:#fff;" id="pagDelConfirm">Excluir</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('modalRoot').innerHTML = html;
+  const voltar = ()=>{ if(voltarPara) openSubDetailModal(voltarPara); else document.getElementById('modalRoot').innerHTML=''; };
+  document.getElementById('pagDelClose').addEventListener('click', voltar);
+  document.getElementById('pagDelCancel').addEventListener('click', voltar);
+  document.getElementById('pagDelBackdrop').addEventListener('click', e=>{ if(e.target.id==='pagDelBackdrop') voltar(); });
+  document.getElementById('pagDelConfirm').addEventListener('click', async ()=>{
+    const voltarVenc = document.getElementById('pagDelVoltar');
+    s.historicoPagamentos.splice(pagIdx, 1);
+    if(voltarVenc && voltarVenc.checked) s.dataVencimento = subRewindDueDate(s.dataVencimento, s.ciclo);
+    subSyncUltimoPagamento(s);
+    await saveSubscriptions();
+    toast('Pagamento excluído.');
+    render();
+    voltar();
+  });
+}
+// Repetidos que dá pra remover em lote com segurança: mesma assinatura, mesma
+// data e mesmo valor. Mantém a primeira ocorrência e devolve as sobras.
+// Repetição entre CADASTROS diferentes da mesma ferramenta não entra aqui —
+// nesse caso não dá pra saber qual registro manter, então fica pro usuário.
+function subDuplicatePayments(rows){
+  const vistos = {};
+  const extras = [];
+  rows.forEach(r=>{
+    if(r.pagIdx===undefined || r.pagIdx===null) return;
+    const k = r.subId+'|'+(r.data||'')+'|'+(Number(r.valor)||0);
+    if(vistos[k]) extras.push(r); else vistos[k] = true;
+  });
+  return extras;
+}
+function openDedupModal(extras, voltarPara){
+  if(!extras.length) return;
+  const porSub = {};
+  extras.forEach(r=>{ (porSub[r.subId] = porSub[r.subId] || []).push(r); });
+  const temCiclo = Object.keys(porSub).some(id=>{
+    const s = state.subscriptions.find(x=>x.id===id);
+    return s && subCycleMeta(s.ciclo).days;
+  });
+  const linhas = Object.keys(porSub).map(id=>{
+    const s = state.subscriptions.find(x=>x.id===id);
+    const rs = porSub[id];
+    return `<li style="margin-bottom:6px;"><strong>${escapeHtml(s?s.ferramenta:'—')}</strong> — ${rs.length} cópia(s) extra(s): ${rs.map(r=>formatDateBR(r.data)+' · '+fmtBRL(r.valor)).join(', ')}</li>`;
+  }).join('');
+  const html = `
+  <div class="modal-backdrop" id="dedupBackdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Remover lançamentos repetidos</h3>
+        <button class="modal-close" id="dedupClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin:0 0 12px;font-size:14.5px;line-height:1.6;color:var(--text-900);">
+          Vou apagar <strong>${extras.length} lançamento(s)</strong>, mantendo uma cópia de cada:
+        </p>
+        <ul style="margin:0 0 14px;padding-left:20px;font-size:13.5px;line-height:1.6;">${linhas}</ul>
+        ${temCiclo ? `
+        <label style="display:flex;align-items:flex-start;gap:9px;font-size:13.5px;font-weight:600;cursor:pointer;">
+          <input type="checkbox" id="dedupVoltar" checked style="margin-top:3px;">
+          <span>Voltar o vencimento um ciclo para cada baixa removida
+            <span class="hint-text" style="display:block;">Cada "dar baixa" empurrou o vencimento pra frente. Marque se essas baixas foram dadas por engano.</span>
+          </span>
+        </label>` : ''}
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="dedupCancel">Cancelar</button>
+        <button class="btn" style="background:var(--red);color:#fff;" id="dedupConfirm">Remover ${extras.length}</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('modalRoot').innerHTML = html;
+  const voltar = ()=>{ if(voltarPara) openSubDetailModal(voltarPara); else document.getElementById('modalRoot').innerHTML=''; };
+  document.getElementById('dedupClose').addEventListener('click', voltar);
+  document.getElementById('dedupCancel').addEventListener('click', voltar);
+  document.getElementById('dedupBackdrop').addEventListener('click', e=>{ if(e.target.id==='dedupBackdrop') voltar(); });
+  document.getElementById('dedupConfirm').addEventListener('click', async ()=>{
+    const chk = document.getElementById('dedupVoltar');
+    const voltarVenc = !!(chk && chk.checked);
+    Object.keys(porSub).forEach(id=>{
+      const s = state.subscriptions.find(x=>x.id===id);
+      if(!s || !Array.isArray(s.historicoPagamentos)) return;
+      // remove de tras pra frente pra nao bagunçar os indices
+      const idxs = porSub[id].map(r=>r.pagIdx).sort((a,b)=>b-a);
+      idxs.forEach(i=>s.historicoPagamentos.splice(i,1));
+      if(voltarVenc && subCycleMeta(s.ciclo).days){
+        idxs.forEach(()=>{ s.dataVencimento = subRewindDueDate(s.dataVencimento, s.ciclo); });
+      }
+      subSyncUltimoPagamento(s);
+    });
+    await saveSubscriptions();
+    toast(`${extras.length} lançamento(s) repetido(s) removido(s).`);
+    render();
+    voltar();
+  });
+}
 const SUB_CARD_TITLES = {
   custoMensal: 'Custo mensal (vence este mês)',
   pagoMes: 'Pago no mês',
@@ -4762,6 +4940,13 @@ function openSubDetailModal(key){
   const rows = (summary.detalhes && summary.detalhes[key]) || [];
   const contagem = ['ativas','vencidasPendentes','proximosVencimentos'].includes(key);
   const total = rows.reduce((sum,r)=>sum+(Number(r.valor)||0), 0);
+  // Marca lançamentos repetidos (mesma ferramenta, mesma data, mesmo valor) —
+  // o caso clássico de "dar baixa" duas vezes na mesma conta.
+  const contagemPorChave = {};
+  const chaveDe = (r)=> (r.sub.ferramenta||'')+'|'+(r.data||'')+'|'+(Number(r.valor)||0);
+  rows.forEach(r=>{ const k=chaveDe(r); contagemPorChave[k]=(contagemPorChave[k]||0)+1; });
+  const qtdDuplicados = rows.filter(r=>contagemPorChave[chaveDe(r)]>1).length;
+  const extrasRemoviveis = subDuplicatePayments(rows);
   const periodo = (f.dataInicio||f.dataFim) && key==='totalDesembolsado'
     ? `<p class="hint-text" style="margin:0 0 12px;">Período: ${f.dataInicio?formatDateBR(f.dataInicio):'início'} até ${f.dataFim?formatDateBR(f.dataFim):'hoje'}</p>` : '';
   const html = `
@@ -4773,25 +4958,40 @@ function openSubDetailModal(key){
       </div>
       <div class="modal-body">
         ${periodo}
+        ${qtdDuplicados ? `
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 12px;">
+          <span style="font-size:12.5px;color:#c9821f;font-weight:700;">${qtdDuplicados} lançamento(s) repetido(s) — mesma ferramenta, data e valor.</span>
+          ${extrasRemoviveis.length ? `<button class="btn" id="subDetailDedup" style="background:#c9821f;color:#fff;border-color:#c9821f;">${icon('trash',14)} Remover ${extrasRemoviveis.length} repetido(s)</button>` : ''}
+        </div>
+        ${!extrasRemoviveis.length ? `<p class="hint-text" style="margin:-6px 0 12px;">Esses repetidos estão em cadastros diferentes da mesma ferramenta, então não dá pra saber qual manter — exclua na mão, linha a linha.</p>` : ''}` : ''}
         ${rows.length ? `
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Ferramenta</th><th>Empresa</th><th>Data</th><th>Situação</th><th style="text-align:right;">Valor</th></tr></thead>
+            <thead><tr><th>Ferramenta</th><th>Empresa</th><th>Data</th><th>Situação</th><th style="text-align:right;">Valor</th><th></th></tr></thead>
             <tbody>
               ${rows.map(r=>{
                 const cm = companyMeta(r.sub.grupo);
-                return `<tr>
+                const dup = contagemPorChave[chaveDe(r)]>1;
+                const ehPagamento = r.pagIdx!==undefined && r.pagIdx!==null;
+                const acoes = ehPagamento
+                  ? `<button class="btn btn-icon" data-pag-edit="${r.subId}::${r.pagIdx}" title="Editar pagamento">${icon('edit',14)}</button>
+                     <button class="btn btn-icon" data-pag-del="${r.subId}::${r.pagIdx}" title="Excluir pagamento" style="color:var(--red);border-color:#f1c9c9;">${icon('trash',14)}</button>`
+                  : `<button class="btn btn-icon" data-det-sub-edit="${r.subId}" title="Editar assinatura">${icon('edit',14)}</button>
+                     <button class="btn btn-icon" data-det-sub-del="${r.subId}" title="Excluir assinatura" style="color:var(--red);border-color:#f1c9c9;">${icon('trash',14)}</button>`;
+                return `<tr${dup?' style="background:#fffaf1;"':''}>
                   <td style="font-weight:600;">${escapeHtml(r.sub.ferramenta||'—')}${r.sub.plano?`<div class="hint-text">${escapeHtml(r.sub.plano)}</div>`:''}</td>
                   <td><span class="dot" style="background:${cm.color}"></span> ${escapeHtml(cm.label)}</td>
                   <td class="mono">${r.data?formatDateBR(r.data):'—'}</td>
-                  <td>${escapeHtml(r.tipo||'—')}</td>
+                  <td>${escapeHtml(r.tipo||'—')}${dup?` <span class="status-pill" style="background:#fdf1de;color:#c9821f;">repetido</span>`:''}</td>
                   <td class="mono" style="text-align:right;font-weight:700;">${fmtBRL(r.valor)}</td>
+                  <td><div class="row-actions">${acoes}</div></td>
                 </tr>`;
               }).join('')}
             </tbody>
             <tfoot><tr>
               <td colspan="4" style="text-align:right;font-weight:800;">${contagem ? `${rows.length} assinatura(s) · soma dos valores` : 'Total'}</td>
               <td class="mono" style="text-align:right;font-weight:800;">${fmtBRL(total)}</td>
+              <td></td>
             </tr></tfoot>
           </table>
         </div>` : `<div class="empty-state">${icon('financeiro',36)}<h3>Nenhum lançamento</h3><p>Este indicador está zerado com os filtros atuais.</p></div>`}
@@ -4799,11 +4999,37 @@ function openSubDetailModal(key){
       <div class="modal-foot"><button class="btn btn-ghost" id="subDetailOk">Fechar</button></div>
     </div>
   </div>`;
-  document.getElementById('modalRoot').innerHTML = html;
-  const close = ()=>{ document.getElementById('modalRoot').innerHTML=''; };
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = html;
+  const close = ()=>{ root.innerHTML=''; };
   document.getElementById('subDetailClose').addEventListener('click', close);
   document.getElementById('subDetailOk').addEventListener('click', close);
   document.getElementById('subDetailBackdrop').addEventListener('click', e=>{ if(e.target.id==='subDetailBackdrop') close(); });
+  const dedupBtn = document.getElementById('subDetailDedup');
+  if(dedupBtn) dedupBtn.addEventListener('click', ()=>openDedupModal(extrasRemoviveis, key));
+  root.querySelectorAll('[data-pag-edit]').forEach(b=>b.addEventListener('click', ()=>{
+    const [id, idx] = b.dataset.pagEdit.split('::');
+    openEditPaymentModal(id, Number(idx), key);
+  }));
+  root.querySelectorAll('[data-pag-del]').forEach(b=>b.addEventListener('click', ()=>{
+    const [id, idx] = b.dataset.pagDel.split('::');
+    openDeletePaymentModal(id, Number(idx), key);
+  }));
+  root.querySelectorAll('[data-det-sub-edit]').forEach(b=>b.addEventListener('click', ()=>{
+    const s = state.subscriptions.find(x=>x.id===b.dataset.detSubEdit);
+    if(s) openSubscriptionModal(s);
+  }));
+  root.querySelectorAll('[data-det-sub-del]').forEach(b=>b.addEventListener('click', ()=>{
+    const s = state.subscriptions.find(x=>x.id===b.dataset.detSubDel);
+    if(!s) return;
+    openConfirmModal(`Excluir a assinatura "${s.ferramenta}"? Essa ação não pode ser desfeita.`, async ()=>{
+      state.subscriptions = state.subscriptions.filter(x=>x.id!==s.id);
+      await saveSubscriptions();
+      toast('Assinatura excluída.');
+      render();
+      openSubDetailModal(key);
+    });
+  }));
 }
 function attachSubscriptionsEvents(){
   document.querySelectorAll('[data-sub-card]').forEach(card=>{
