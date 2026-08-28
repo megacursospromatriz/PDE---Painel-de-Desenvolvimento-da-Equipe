@@ -448,6 +448,11 @@
   }
   .fsc-label{font-size:11px;font-weight:700;color:var(--text-400);text-transform:uppercase;letter-spacing:.03em;margin-bottom:6px;}
   .fsc-value{font-size:19px;font-weight:800;color:var(--text-900);font-family:'Space Grotesk';}
+  .fin-summary-card[data-sub-card]{cursor:pointer;transition:border-color .12s ease, box-shadow .12s ease, transform .12s ease;}
+  .fin-summary-card[data-sub-card]:hover{border-color:var(--blue-600);box-shadow:0 4px 14px rgba(33,72,201,.14);transform:translateY(-1px);}
+  .fsc-hint{font-size:9px;font-weight:700;color:var(--text-400);text-transform:uppercase;letter-spacing:.04em;margin-top:6px;opacity:0;transition:opacity .12s ease;}
+  .fin-summary-card[data-sub-card]:hover .fsc-hint{opacity:1;}
+  @media (hover:none){ .fsc-hint{opacity:1;} }
   .fin-form-section{
     font-size:11px;font-weight:700;color:var(--blue-600);text-transform:uppercase;letter-spacing:.04em;
     margin:18px 0 8px;padding-bottom:6px;border-bottom:1.5px solid var(--line-soft);
@@ -4262,6 +4267,12 @@ function subMonthlyEquivalent(sub){
   if(!cycle.divisor) return 0;
   return (Number(sub.valor)||0) / cycle.divisor;
 }
+// Dias até a PRÓPRIA data de vencimento. Diferente de subDaysUntilRenewal,
+// que soma um ciclo inteiro por cima e serve pra prever a cobrança seguinte.
+function subDaysUntilDue(sub){
+  if(!sub.dataVencimento) return null;
+  return Math.round((new Date(sub.dataVencimento+'T00:00:00') - new Date(todayStr()+'T00:00:00')) / 86400000);
+}
 function subDaysUntilRenewal(sub){
   const next = subNextRenewal(sub);
   if(!next) return null;
@@ -4275,33 +4286,69 @@ function subscriptionsSummary(allSubs, dateFilter){
   // de baixas de verdade), não o valor cadastrado. Se houver filtro de período,
   // some só os pagamentos feitos dentro dele.
   let totalDesembolsado = 0;
+  const detTotalDesembolsado = [];
   allSubs.forEach(s=>(s.historicoPagamentos||[]).forEach(p=>{
     if(dateFilter.dataInicio && p.data < dateFilter.dataInicio) return;
     if(dateFilter.dataFim && p.data > dateFilter.dataFim) return;
     totalDesembolsado += Number(p.valor)||0;
+    detTotalDesembolsado.push({sub:s, data:p.data, valor:Number(p.valor)||0, tipo:'Pago'});
   }));
 
   // Métricas do mês corrente (calendário) — tudo que vence neste mês, pago ou não.
   const curMonthPrefix = todayStr().slice(0,7); // "YYYY-MM"
-  const aPagarMes = allSubs
-    .filter(s=>s.dataVencimento && s.dataVencimento.startsWith(curMonthPrefix))
-    .reduce((sum,s)=>sum+(Number(s.valor)||0), 0);
   let pagoMes = 0;
+  const detPagoMes = [];
+  const pagasNesteMes = new Set();
   allSubs.forEach(s=>(s.historicoPagamentos||[]).forEach(p=>{
-    if(p.data && p.data.startsWith(curMonthPrefix)) pagoMes += Number(p.valor)||0;
+    if(p.data && p.data.startsWith(curMonthPrefix)){
+      pagoMes += Number(p.valor)||0;
+      detPagoMes.push({sub:s, data:p.data, valor:Number(p.valor)||0, tipo:'Pago'});
+      pagasNesteMes.add(s.id);
+    }
   }));
+  // "A pagar no mes" = vence neste mes e AINDA nao foi paga neste mes. Sem o
+  // segundo teste, uma assinatura sem ciclo recorrente (pagamento unico)
+  // entrava ao mesmo tempo em "a pagar" e em "pago" e dobrava o custo mensal.
+  const detAPagarMes = allSubs
+    .filter(s=>s.dataVencimento && s.dataVencimento.startsWith(curMonthPrefix) && !pagasNesteMes.has(s.id))
+    .map(s=>({sub:s, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:'A pagar'}));
+  const aPagarMes = detAPagarMes.reduce((sum,r)=>sum+r.valor, 0);
   const custoMensal = aPagarMes + pagoMes;
 
   // Estimativa anual usa o valor normalizado por assinatura (mais estável que
   // projetar o mês corrente x12, que varia muito conforme o que cai nesse mês).
   const custoMensalEquivalente = activeIsh.reduce((sum,s)=>sum+subMonthlyEquivalent(s),0);
 
+  const detCustoAnual = activeIsh
+    .filter(s=>subMonthlyEquivalent(s)>0)
+    .map(s=>({sub:s, data:s.dataVencimento, valor:subMonthlyEquivalent(s)*12, tipo:subCycleMeta(s.ciclo).label+' · '+fmtBRL(subMonthlyEquivalent(s))+'/mes'}));
+  const detAtivas = activeIsh.map(s=>({sub:s, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:subStatusMeta(subEffectiveStatus(s)).label}));
+  const detVencidasPendentes = allSubs
+    .filter(s=>['vencida','pendente'].includes(subEffectiveStatus(s)))
+    .map(s=>({sub:s, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:subStatusMeta(subEffectiveStatus(s)).label}));
+  // "Vencem em 30 dias" olha a propria data de vencimento. Antes usava
+  // subDaysUntilRenewal (vencimento + 1 ciclo inteiro), o que empurrava o prazo
+  // pra frente demais e deixava o card em 0 mesmo com contas vencendo na semana.
+  const detProximos = activeIsh
+    .filter(s=>{ const d=subDaysUntilDue(s); return d!==null && d>=0 && d<=30; })
+    .map(s=>{ const d=subDaysUntilDue(s); return {sub:s, data:s.dataVencimento, valor:Number(s.valor)||0, tipo: d===0?'vence hoje':('em '+d+' dia(s)')}; });
+
   return {
     totalDesembolsado, custoMensal, pagoMes, aPagarMes,
     custoAnual: custoMensalEquivalente*12,
     ativasCount: activeIsh.length,
-    vencidasPendentes: allSubs.filter(s=>['vencida','pendente'].includes(subEffectiveStatus(s))).length,
-    proximosVencimentos: activeIsh.filter(s=>{ const d=subDaysUntilRenewal(s); return d!==null && d>=0 && d<=30; }).length,
+    vencidasPendentes: detVencidasPendentes.length,
+    proximosVencimentos: detProximos.length,
+    detalhes: {
+      custoMensal: detAPagarMes.concat(detPagoMes),
+      pagoMes: detPagoMes,
+      aPagarMes: detAPagarMes,
+      custoAnual: detCustoAnual,
+      ativas: detAtivas,
+      vencidasPendentes: detVencidasPendentes,
+      proximosVencimentos: detProximos,
+      totalDesembolsado: detTotalDesembolsado,
+    },
   };
 }
 function subscriptionsFiltered(){
@@ -4311,8 +4358,14 @@ function subscriptionsFiltered(){
   if(f.category!=='todas') list = list.filter(s=>s.categoria===f.category);
   if(f.status!=='todas') list = list.filter(s=>subEffectiveStatus(s)===f.status);
   if(f.cycle!=='todas') list = list.filter(s=>s.ciclo===f.cycle);
-  if(f.dataInicio) list = list.filter(s=>s.dataVencimento && s.dataVencimento>=f.dataInicio);
-  if(f.dataFim) list = list.filter(s=>s.dataVencimento && s.dataVencimento<=f.dataFim);
+  // O periodo casa por vencimento OU por pagamento feito dentro dele. Antes so
+  // olhava o vencimento: como dar baixa empurra o vencimento pro mes seguinte,
+  // filtrar "agosto" zerava a lista mesmo havendo pagamentos de agosto no
+  // historico -- e junto zerava o filtro rapido "Pagas no periodo".
+  if(f.dataInicio || f.dataFim){
+    const dentroDoPeriodo = (d)=> !!d && (!f.dataInicio || d>=f.dataInicio) && (!f.dataFim || d<=f.dataFim);
+    list = list.filter(s=> dentroDoPeriodo(s.dataVencimento) || (s.historicoPagamentos||[]).some(p=>dentroDoPeriodo(p.data)) );
+  }
   if(f.search && f.search.trim()){
     const q = f.search.trim().toLowerCase();
     list = list.filter(s=> (s.ferramenta||'').toLowerCase().includes(q) || (s.plano||'').toLowerCase().includes(q) || (s.observacoes||'').toLowerCase().includes(q) || (s.responsavel||'').toLowerCase().includes(q));
@@ -4351,14 +4404,14 @@ function subscriptionsTemplate(){
   const summary = subscriptionsSummary(subsForSummary, f);
   return `
     <div class="fin-summary-cards">
-      <div class="fin-summary-card"><div class="fsc-label">Custo mensal (vence este mês)</div><div class="fsc-value">${fmtBRL(summary.custoMensal)}</div></div>
-      <div class="fin-summary-card"><div class="fsc-label">Pago no mês</div><div class="fsc-value" style="color:var(--green);">${fmtBRL(summary.pagoMes)}</div></div>
-      <div class="fin-summary-card"><div class="fsc-label">A pagar no mês</div><div class="fsc-value" style="color:#c9821f;">${fmtBRL(summary.aPagarMes)}</div></div>
-      <div class="fin-summary-card"><div class="fsc-label">Custo anual estimado</div><div class="fsc-value">${fmtBRL(summary.custoAnual)}</div></div>
-      <div class="fin-summary-card"><div class="fsc-label">Assinaturas ativas</div><div class="fsc-value">${summary.ativasCount}</div></div>
-      <div class="fin-summary-card"><div class="fsc-label">Vencidas / Pendentes</div><div class="fsc-value" style="color:var(--red);">${summary.vencidasPendentes}</div></div>
-      <div class="fin-summary-card"><div class="fsc-label">Vencem em 30 dias</div><div class="fsc-value" style="color:#c9821f;">${summary.proximosVencimentos}</div></div>
-      <div class="fin-summary-card"><div class="fsc-label">Total desembolsado${(f.dataInicio||f.dataFim)?' (período)':''}</div><div class="fsc-value">${fmtBRL(summary.totalDesembolsado)}</div></div>
+      <div class="fin-summary-card" data-sub-card="custoMensal"><div class="fsc-label">Custo mensal (vence este mês)</div><div class="fsc-value">${fmtBRL(summary.custoMensal)}</div><div class="fsc-hint">ver lançamentos</div></div>
+      <div class="fin-summary-card" data-sub-card="pagoMes"><div class="fsc-label">Pago no mês</div><div class="fsc-value" style="color:var(--green);">${fmtBRL(summary.pagoMes)}</div><div class="fsc-hint">ver lançamentos</div></div>
+      <div class="fin-summary-card" data-sub-card="aPagarMes"><div class="fsc-label">A pagar no mês</div><div class="fsc-value" style="color:#c9821f;">${fmtBRL(summary.aPagarMes)}</div><div class="fsc-hint">ver lançamentos</div></div>
+      <div class="fin-summary-card" data-sub-card="custoAnual"><div class="fsc-label">Custo anual estimado</div><div class="fsc-value">${fmtBRL(summary.custoAnual)}</div><div class="fsc-hint">ver lançamentos</div></div>
+      <div class="fin-summary-card" data-sub-card="ativas"><div class="fsc-label">Assinaturas ativas</div><div class="fsc-value">${summary.ativasCount}</div><div class="fsc-hint">ver lançamentos</div></div>
+      <div class="fin-summary-card" data-sub-card="vencidasPendentes"><div class="fsc-label">Vencidas / Pendentes</div><div class="fsc-value" style="color:var(--red);">${summary.vencidasPendentes}</div><div class="fsc-hint">ver lançamentos</div></div>
+      <div class="fin-summary-card" data-sub-card="proximosVencimentos"><div class="fsc-label">Vencem em 30 dias</div><div class="fsc-value" style="color:#c9821f;">${summary.proximosVencimentos}</div><div class="fsc-hint">ver lançamentos</div></div>
+      <div class="fin-summary-card" data-sub-card="totalDesembolsado"><div class="fsc-label">Total desembolsado${(f.dataInicio||f.dataFim)?' (período)':''}</div><div class="fsc-value">${fmtBRL(summary.totalDesembolsado)}</div><div class="fsc-hint">ver lançamentos</div></div>
     </div>
 
     <div class="chip-row" style="margin:18px 0 4px;">
@@ -4690,7 +4743,72 @@ async function importSubscriptionsExcel(file){
     render();
   });
 }
+const SUB_CARD_TITLES = {
+  custoMensal: 'Custo mensal (vence este mês)',
+  pagoMes: 'Pago no mês',
+  aPagarMes: 'A pagar no mês',
+  custoAnual: 'Custo anual estimado',
+  ativas: 'Assinaturas ativas',
+  vencidasPendentes: 'Vencidas / Pendentes',
+  proximosVencimentos: 'Vencem em 30 dias',
+  totalDesembolsado: 'Total desembolsado',
+};
+// Cards do topo são clicáveis: abrem a lista exata que formou aquele número,
+// usando os mesmos filtros de empresa/período que já estão na tela.
+function openSubDetailModal(key){
+  const f = state.subFilter;
+  const base = f.company==='todas' ? state.subscriptions : state.subscriptions.filter(s=>s.grupo===f.company);
+  const summary = subscriptionsSummary(base, f);
+  const rows = (summary.detalhes && summary.detalhes[key]) || [];
+  const contagem = ['ativas','vencidasPendentes','proximosVencimentos'].includes(key);
+  const total = rows.reduce((sum,r)=>sum+(Number(r.valor)||0), 0);
+  const periodo = (f.dataInicio||f.dataFim) && key==='totalDesembolsado'
+    ? `<p class="hint-text" style="margin:0 0 12px;">Período: ${f.dataInicio?formatDateBR(f.dataInicio):'início'} até ${f.dataFim?formatDateBR(f.dataFim):'hoje'}</p>` : '';
+  const html = `
+  <div class="modal-backdrop" id="subDetailBackdrop">
+    <div class="modal modal-lg">
+      <div class="modal-head">
+        <h3>${escapeHtml(SUB_CARD_TITLES[key]||'Detalhe')}</h3>
+        <button class="modal-close" id="subDetailClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        ${periodo}
+        ${rows.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Ferramenta</th><th>Empresa</th><th>Data</th><th>Situação</th><th style="text-align:right;">Valor</th></tr></thead>
+            <tbody>
+              ${rows.map(r=>{
+                const cm = companyMeta(r.sub.grupo);
+                return `<tr>
+                  <td style="font-weight:600;">${escapeHtml(r.sub.ferramenta||'—')}${r.sub.plano?`<div class="hint-text">${escapeHtml(r.sub.plano)}</div>`:''}</td>
+                  <td><span class="dot" style="background:${cm.color}"></span> ${escapeHtml(cm.label)}</td>
+                  <td class="mono">${r.data?formatDateBR(r.data):'—'}</td>
+                  <td>${escapeHtml(r.tipo||'—')}</td>
+                  <td class="mono" style="text-align:right;font-weight:700;">${fmtBRL(r.valor)}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+            <tfoot><tr>
+              <td colspan="4" style="text-align:right;font-weight:800;">${contagem ? `${rows.length} assinatura(s) · soma dos valores` : 'Total'}</td>
+              <td class="mono" style="text-align:right;font-weight:800;">${fmtBRL(total)}</td>
+            </tr></tfoot>
+          </table>
+        </div>` : `<div class="empty-state">${icon('financeiro',36)}<h3>Nenhum lançamento</h3><p>Este indicador está zerado com os filtros atuais.</p></div>`}
+      </div>
+      <div class="modal-foot"><button class="btn btn-ghost" id="subDetailOk">Fechar</button></div>
+    </div>
+  </div>`;
+  document.getElementById('modalRoot').innerHTML = html;
+  const close = ()=>{ document.getElementById('modalRoot').innerHTML=''; };
+  document.getElementById('subDetailClose').addEventListener('click', close);
+  document.getElementById('subDetailOk').addEventListener('click', close);
+  document.getElementById('subDetailBackdrop').addEventListener('click', e=>{ if(e.target.id==='subDetailBackdrop') close(); });
+}
 function attachSubscriptionsEvents(){
+  document.querySelectorAll('[data-sub-card]').forEach(card=>{
+    card.addEventListener('click', ()=>openSubDetailModal(card.dataset.subCard));
+  });
   const searchInput = document.getElementById('subSearchInput');
   if(searchInput) searchInput.addEventListener('input', ()=>{
     state.subFilter.search = searchInput.value;
