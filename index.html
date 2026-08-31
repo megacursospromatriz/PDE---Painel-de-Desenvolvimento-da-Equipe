@@ -442,6 +442,34 @@
   .fin-bar-label{font-size:10.5px;font-weight:700;color:var(--text-400);text-transform:uppercase;padding-bottom:10px;}
 
   /* -------- assinaturas -------- */
+  /* -------- fechamento em PDF (via impressão do navegador) -------- */
+  #printArea{display:none;}
+  @media print{
+    @page{size:A4;margin:13mm 11mm;}
+    body > *{display:none !important;}
+    body > #printArea{display:block !important;}
+    #printArea{font-family:'Inter',Arial,sans-serif;color:#111;font-size:10.5px;}
+    #printArea h1{font-family:'Space Grotesk',Arial,sans-serif;font-size:19px;margin:0 0 2px;}
+    #printArea h2{font-family:'Space Grotesk',Arial,sans-serif;font-size:12.5px;margin:18px 0 7px;padding-bottom:4px;border-bottom:1.5px solid #111;text-transform:uppercase;letter-spacing:.04em;}
+    #printArea .pr-head{display:flex;align-items:center;gap:12px;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:4px;}
+    #printArea .pr-logo{height:38px;}
+    #printArea .pr-meta{font-size:10px;color:#555;line-height:1.5;}
+    #printArea table{width:100%;border-collapse:collapse;margin-top:4px;}
+    #printArea th{text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:#555;border-bottom:1px solid #999;padding:5px 6px;}
+    #printArea td{padding:5px 6px;border-bottom:1px solid #e3e3e3;font-size:10.5px;color:#111;}
+    #printArea tfoot td{border-top:1.5px solid #111;border-bottom:none;font-weight:700;}
+    #printArea .num{text-align:right;font-variant-numeric:tabular-nums;}
+    #printArea .pr-resumo{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+    #printArea .pr-box{border:1px solid #bbb;border-radius:5px;padding:7px 9px;}
+    #printArea .pr-box b{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:#555;font-weight:700;margin-bottom:3px;}
+    #printArea .pr-box span{font-family:'Space Grotesk',Arial,sans-serif;font-size:14px;font-weight:800;}
+    #printArea .pr-vazio{font-size:10.5px;color:#777;font-style:italic;padding:6px 0;}
+    #printArea .pr-assin{margin-top:34px;display:flex;gap:40px;}
+    #printArea .pr-assin div{flex:1;border-top:1px solid #111;padding-top:5px;font-size:9.5px;color:#555;text-align:center;}
+    #printArea thead{display:table-header-group;}
+    #printArea tr{page-break-inside:avoid;}
+    #printArea .pr-quebra{page-break-before:always;}
+  }
   .fin-summary-cards{display:grid;grid-template-columns:repeat(auto-fit, minmax(150px,1fr));gap:12px;}
   .fin-summary-card{
     background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow-card);
@@ -4447,6 +4475,7 @@ function subscriptionsTemplate(){
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" id="subExportBtn">${icon('download',14)} Exportar Excel</button>
         <button class="btn btn-ghost btn-sm" id="subImportBtn">${icon('upload',14)} Importar Excel</button>
+        <button class="btn btn-ghost btn-sm" id="subPdfBtn">${icon('download',14)} Fechamento PDF</button>
         <input type="file" id="subImportInput" accept=".xlsx,.xls" style="display:none;">
         <button class="btn btn-primary" id="subNewBtn">${icon('plus',16)} Nova assinatura</button>
       </div>
@@ -4921,6 +4950,185 @@ function openDedupModal(extras, voltarPara){
     voltar();
   });
 }
+/* ============ FECHAMENTO EM PDF (impressão do navegador) ============ */
+function ultimoDiaDoMes(anoMes){
+  const partes = anoMes.split('-').map(Number);
+  return `${anoMes}-${pad2(new Date(partes[0], partes[1], 0).getDate())}`;
+}
+// Junta tudo que compõe o fechamento de um período: o que foi pago, o que
+// venceu e não foi pago, e o inventário do que está ativo.
+function closingData(dataInicio, dataFim, company){
+  const subs = company==='todas' ? state.subscriptions.slice() : state.subscriptions.filter(s=>s.grupo===company);
+  const dentro = (d)=> !!d && d>=dataInicio && d<=dataFim;
+  const pagamentos = [];
+  subs.forEach(s=>(s.historicoPagamentos||[]).forEach(p=>{
+    if(dentro(p.data)) pagamentos.push({sub:s, data:p.data, valor:Number(p.valor)||0});
+  }));
+  pagamentos.sort((a,b)=> a.data<b.data ? -1 : a.data>b.data ? 1 : 0);
+  const emAberto = subs
+    .filter(s=>!['cancelada','pausada'].includes(subEffectiveStatus(s)))
+    .filter(s=>dentro(s.dataVencimento) && !(s.historicoPagamentos||[]).some(p=>dentro(p.data)))
+    .map(s=>({sub:s, data:s.dataVencimento, valor:Number(s.valor)||0}))
+    .sort((a,b)=> a.data<b.data ? -1 : a.data>b.data ? 1 : 0);
+  const ativas = subs.filter(s=>!['cancelada','pausada'].includes(subEffectiveStatus(s)))
+    .sort((a,b)=> (a.ferramenta||'').localeCompare(b.ferramenta||''));
+  const soma = (arr)=>arr.reduce((t,r)=>t+(Number(r.valor)||0), 0);
+  const agrupa = (arr, chave)=>{
+    const m = {};
+    arr.forEach(r=>{ const k = chave(r); m[k] = (m[k]||0) + r.valor; });
+    return Object.keys(m).map(k=>({rotulo:k, valor:m[k]})).sort((a,b)=>b.valor-a.valor);
+  };
+  return {
+    subs, pagamentos, emAberto, ativas,
+    totalPago: soma(pagamentos),
+    totalAberto: soma(emAberto),
+    mensalEquivalente: ativas.reduce((t,s)=>t+subMonthlyEquivalent(s), 0),
+    porEmpresa: agrupa(pagamentos, r=>companyMeta(r.sub.grupo).label),
+    porCategoria: agrupa(pagamentos, r=>r.sub.categoria||'Sem categoria'),
+  };
+}
+function closingReportHtml(dataInicio, dataFim, company, incluirInventario){
+  const d = closingData(dataInicio, dataFim, company);
+  const empresaLabel = company==='todas' ? 'Todas as empresas' : companyMeta(company).label;
+  const u = state.currentUser;
+  const agora = new Date();
+  const geradoEm = `${pad2(agora.getDate())}/${pad2(agora.getMonth()+1)}/${agora.getFullYear()} às ${pad2(agora.getHours())}:${pad2(agora.getMinutes())}`;
+  const linhas = (arr)=> arr.map(r=>`
+    <tr>
+      <td>${escapeHtml(r.sub.ferramenta||'—')}${r.sub.plano?` <span style="color:#777;">(${escapeHtml(r.sub.plano)})</span>`:''}</td>
+      <td>${escapeHtml(r.sub.categoria||'—')}</td>
+      <td>${escapeHtml(companyMeta(r.sub.grupo).label)}</td>
+      <td>${r.data?formatDateBR(r.data):'—'}</td>
+      <td class="num">${fmtBRL(r.valor)}</td>
+    </tr>`).join('');
+  const tabela = (titulo, arr, total, vazio)=> `
+    <h2>${titulo}</h2>
+    ${arr.length ? `
+    <table>
+      <thead><tr><th>Ferramenta</th><th>Categoria</th><th>Empresa</th><th>Data</th><th class="num">Valor</th></tr></thead>
+      <tbody>${linhas(arr)}</tbody>
+      <tfoot><tr><td colspan="4" class="num">Total (${arr.length})</td><td class="num">${fmtBRL(total)}</td></tr></tfoot>
+    </table>` : `<div class="pr-vazio">${vazio}</div>`}`;
+  const resumoTabela = (titulo, rotuloCol, itens)=> itens.length ? `
+    <h2>${titulo}</h2>
+    <table>
+      <thead><tr><th>${rotuloCol}</th><th class="num">Valor pago</th><th class="num">% do total</th></tr></thead>
+      <tbody>${itens.map(i=>`<tr><td>${escapeHtml(i.rotulo)}</td><td class="num">${fmtBRL(i.valor)}</td><td class="num">${d.totalPago?((i.valor/d.totalPago)*100).toFixed(1):'0.0'}%</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td class="num">Total</td><td class="num">${fmtBRL(d.totalPago)}</td><td class="num">100%</td></tr></tfoot>
+    </table>` : '';
+  const inventario = incluirInventario && d.ativas.length ? `
+    <h2 class="pr-quebra">Inventário de assinaturas ativas (${d.ativas.length})</h2>
+    <table>
+      <thead><tr><th>Ferramenta</th><th>Categoria</th><th>Empresa</th><th>Ciclo</th><th>Vencimento</th><th class="num">Valor</th><th class="num">Equiv./mês</th></tr></thead>
+      <tbody>${d.ativas.map(s=>`
+        <tr>
+          <td>${escapeHtml(s.ferramenta||'—')}${s.plano?` <span style="color:#777;">(${escapeHtml(s.plano)})</span>`:''}</td>
+          <td>${escapeHtml(s.categoria||'—')}</td>
+          <td>${escapeHtml(companyMeta(s.grupo).label)}</td>
+          <td>${escapeHtml(subCycleMeta(s.ciclo).label)}</td>
+          <td>${s.dataVencimento?formatDateBR(s.dataVencimento):'—'}</td>
+          <td class="num">${fmtBRL(s.valor)}</td>
+          <td class="num">${fmtBRL(subMonthlyEquivalent(s))}</td>
+        </tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="6" class="num">Custo mensal equivalente</td><td class="num">${fmtBRL(d.mensalEquivalente)}</td></tr></tfoot>
+    </table>` : '';
+  return `
+    <div class="pr-head">
+      <img class="pr-logo" src="${LOGO_SRC}" alt="">
+      <div style="flex:1;">
+        <h1>Fechamento de Assinaturas</h1>
+        <div class="pr-meta">
+          ${escapeHtml(empresaLabel)} · Período de ${formatDateBR(dataInicio)} a ${formatDateBR(dataFim)}<br>
+          Gerado em ${geradoEm}${u&&u.name?' por '+escapeHtml(u.name):''}
+        </div>
+      </div>
+    </div>
+    <div class="pr-resumo">
+      <div class="pr-box"><b>Pago no período</b><span>${fmtBRL(d.totalPago)}</span></div>
+      <div class="pr-box"><b>Em aberto no período</b><span>${fmtBRL(d.totalAberto)}</span></div>
+      <div class="pr-box"><b>Assinaturas ativas</b><span>${d.ativas.length}</span></div>
+      <div class="pr-box"><b>Custo mensal equiv.</b><span>${fmtBRL(d.mensalEquivalente)}</span></div>
+    </div>
+    ${tabela('Pagamentos realizados no período', d.pagamentos, d.totalPago, 'Nenhum pagamento registrado neste período.')}
+    ${tabela('Vencimentos em aberto no período', d.emAberto, d.totalAberto, 'Nenhum vencimento em aberto neste período.')}
+    ${resumoTabela('Resumo por empresa', 'Empresa', d.porEmpresa)}
+    ${resumoTabela('Resumo por categoria', 'Categoria', d.porCategoria)}
+    ${inventario}
+    <div class="pr-assin">
+      <div>Responsável pelo fechamento</div>
+      <div>Conferido por</div>
+    </div>`;
+}
+function gerarFechamentoPdf(dataInicio, dataFim, company, incluirInventario){
+  const antigo = document.getElementById('printArea');
+  if(antigo) antigo.remove();
+  const area = document.createElement('div');
+  area.id = 'printArea';
+  area.innerHTML = closingReportHtml(dataInicio, dataFim, company, incluirInventario);
+  document.body.appendChild(area);
+  const limpar = ()=>{
+    const el = document.getElementById('printArea');
+    if(el) el.remove();
+    window.removeEventListener('afterprint', limpar);
+  };
+  window.addEventListener('afterprint', limpar);
+  setTimeout(()=>window.print(), 60);
+  // rede de seguranca: se o afterprint nao disparar (acontece em alguns
+  // navegadores de celular), tira o bloco do DOM depois de um tempo.
+  setTimeout(limpar, 120000);
+}
+function openClosingModal(){
+  const f = state.subFilter;
+  const mesAtual = todayStr().slice(0,7);
+  const ini = f.dataInicio || (mesAtual+'-01');
+  const fim = f.dataFim || ultimoDiaDoMes(mesAtual);
+  const html = `
+  <div class="modal-backdrop" id="fechBackdrop">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h3>Fechamento em PDF</h3>
+        <button class="modal-close" id="fechClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        <div class="grid2">
+          <div class="field"><label for="fechIni">De</label><input type="date" id="fechIni" value="${ini}"></div>
+          <div class="field"><label for="fechFim">Até</label><input type="date" id="fechFim" value="${fim}"></div>
+        </div>
+        <div class="field">
+          <label for="fechEmpresa">Empresa</label>
+          <select id="fechEmpresa">
+            <option value="todas" ${f.company==='todas'?'selected':''}>Todas as empresas</option>
+            ${COMPANIES.map(c=>`<option value="${c.key}" ${f.company===c.key?'selected':''}>${escapeHtml(c.label)}</option>`).join('')}
+          </select>
+        </div>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;cursor:pointer;">
+          <input type="checkbox" id="fechInventario" checked>
+          <span>Incluir inventário das assinaturas ativas</span>
+        </label>
+        <div class="hint-text">Abre a janela de impressão do navegador — escolha <strong>"Salvar como PDF"</strong> no destino.</div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="fechCancel">Cancelar</button>
+        <button class="btn btn-primary" id="fechGerar">${icon('download',15)} Gerar PDF</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('modalRoot').innerHTML = html;
+  const close = ()=>{ document.getElementById('modalRoot').innerHTML=''; };
+  document.getElementById('fechClose').addEventListener('click', close);
+  document.getElementById('fechCancel').addEventListener('click', close);
+  document.getElementById('fechBackdrop').addEventListener('click', e=>{ if(e.target.id==='fechBackdrop') close(); });
+  document.getElementById('fechGerar').addEventListener('click', ()=>{
+    const di = document.getElementById('fechIni').value;
+    const df = document.getElementById('fechFim').value;
+    if(!di || !df){ toast('Informe as duas datas do período.', 'err'); return; }
+    if(di > df){ toast('A data inicial não pode ser maior que a final.', 'err'); return; }
+    const emp = document.getElementById('fechEmpresa').value;
+    const inv = document.getElementById('fechInventario').checked;
+    close();
+    gerarFechamentoPdf(di, df, emp, inv);
+  });
+}
 const SUB_CARD_TITLES = {
   custoMensal: 'Custo mensal (vence este mês)',
   pagoMes: 'Pago no mês',
@@ -5081,6 +5289,7 @@ function attachSubscriptionsEvents(){
     });
   }));
   const exportBtn = document.getElementById('subExportBtn'); if(exportBtn) exportBtn.addEventListener('click', exportSubscriptionsExcel);
+  const pdfBtn = document.getElementById('subPdfBtn'); if(pdfBtn) pdfBtn.addEventListener('click', openClosingModal);
   const importBtn = document.getElementById('subImportBtn'); const importInput = document.getElementById('subImportInput');
   if(importBtn && importInput){
     importBtn.addEventListener('click', ()=> importInput.click());
