@@ -459,7 +459,8 @@
     #printArea td{padding:5px 6px;border-bottom:1px solid #e3e3e3;font-size:10.5px;color:#111;}
     #printArea tfoot td{border-top:1.5px solid #111;border-bottom:none;font-weight:700;}
     #printArea .num{text-align:right;font-variant-numeric:tabular-nums;}
-    #printArea .pr-resumo{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+    #printArea .pr-resumo{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px;}
+    #printArea .pr-nota{font-size:9.5px;color:#666;margin:2px 0 6px;line-height:1.45;}
     #printArea .pr-box{border:1px solid #bbb;border-radius:5px;padding:7px 9px;}
     #printArea .pr-box b{display:block;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;color:#555;font-weight:700;margin-bottom:3px;}
     #printArea .pr-box span{font-family:'Space Grotesk',Arial,sans-serif;font-size:14px;font-weight:800;}
@@ -4955,6 +4956,35 @@ function ultimoDiaDoMes(anoMes){
   const partes = anoMes.split('-').map(Number);
   return `${anoMes}-${pad2(new Date(partes[0], partes[1], 0).getDate())}`;
 }
+function proximoMesDe(dataRef){
+  const partes = dataRef.slice(0,7).split('-').map(Number);
+  // partes[1] é 1-based, então new Date(ano, mes, 1) já cai no mês seguinte
+  const d = new Date(partes[0], partes[1], 1);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
+}
+// Datas de cobrança de UMA assinatura que caem dentro de um mês (YYYY-MM).
+// Avança a partir do vencimento atual no ritmo do ciclo — assim mensal cai
+// todo mês, e trimestral/semestral/anual só aparecem no mês em que realmente
+// vão ser cobradas. Nunca volta no tempo: cobrança passada é histórico, não
+// previsão.
+function subDueDatesInMonth(sub, anoMes){
+  const out = [];
+  if(!sub.dataVencimento) return out;
+  const inicio = anoMes+'-01';
+  const fim = ultimoDiaDoMes(anoMes);
+  const meses = SUB_CYCLE_MONTHS[sub.ciclo];
+  if(!meses){
+    // pagamento único / outra periodicidade: só se o vencimento cair no mês
+    if(sub.dataVencimento>=inicio && sub.dataVencimento<=fim) out.push(sub.dataVencimento);
+    return out;
+  }
+  const d = new Date(sub.dataVencimento+'T00:00:00');
+  const txt = ()=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  let guard = 0;
+  while(txt() < inicio && guard < 400){ d.setMonth(d.getMonth()+meses); guard++; }
+  while(txt() <= fim && guard < 400){ out.push(txt()); d.setMonth(d.getMonth()+meses); guard++; }
+  return out;
+}
 // Junta tudo que compõe o fechamento de um período: o que foi pago, o que
 // venceu e não foi pago, e o inventário do que está ativo.
 function closingData(dataInicio, dataFim, company){
@@ -4978,10 +5008,19 @@ function closingData(dataInicio, dataFim, company){
     arr.forEach(r=>{ const k = chave(r); m[k] = (m[k]||0) + r.valor; });
     return Object.keys(m).map(k=>({rotulo:k, valor:m[k]})).sort((a,b)=>b.valor-a.valor);
   };
+  // Previsão do mês seguinte ao fechamento: só o que de fato vai ser cobrado
+  // naquele mês, com o valor cheio da cobrança (não o equivalente mensal).
+  const proximoMes = proximoMesDe(dataFim);
+  const previsao = [];
+  ativas.forEach(s=>subDueDatesInMonth(s, proximoMes).forEach(dt=>{
+    previsao.push({sub:s, data:dt, valor:Number(s.valor)||0});
+  }));
+  previsao.sort((a,b)=> a.data<b.data ? -1 : a.data>b.data ? 1 : 0);
   return {
-    subs, pagamentos, emAberto, ativas,
+    subs, pagamentos, emAberto, ativas, proximoMes, previsao,
     totalPago: soma(pagamentos),
     totalAberto: soma(emAberto),
+    totalPrevisto: soma(previsao),
     mensalEquivalente: ativas.reduce((t,s)=>t+subMonthlyEquivalent(s), 0),
     porEmpresa: agrupa(pagamentos, r=>companyMeta(r.sub.grupo).label),
     porCategoria: agrupa(pagamentos, r=>r.sub.categoria||'Sem categoria'),
@@ -5048,9 +5087,26 @@ function closingReportHtml(dataInicio, dataFim, company, incluirInventario){
       <div class="pr-box"><b>Em aberto no período</b><span>${fmtBRL(d.totalAberto)}</span></div>
       <div class="pr-box"><b>Assinaturas ativas</b><span>${d.ativas.length}</span></div>
       <div class="pr-box"><b>Custo mensal equiv.</b><span>${fmtBRL(d.mensalEquivalente)}</span></div>
+      <div class="pr-box"><b>Previsto ${escapeHtml(monthLabelPT(d.proximoMes))}</b><span>${fmtBRL(d.totalPrevisto)}</span></div>
     </div>
     ${tabela('Pagamentos realizados no período', d.pagamentos, d.totalPago, 'Nenhum pagamento registrado neste período.')}
     ${tabela('Vencimentos em aberto no período', d.emAberto, d.totalAberto, 'Nenhum vencimento em aberto neste período.')}
+    <h2>Previsão de cobranças em ${escapeHtml(monthLabelPT(d.proximoMes))}</h2>
+    <div class="pr-nota">Entram apenas as assinaturas cuja cobrança cai nesse mês. Trimestrais, semestrais e anuais só aparecem no mês em que forem efetivamente cobradas — por isso o total abaixo não é o custo mensal equivalente.</div>
+    ${d.previsao.length ? `
+    <table>
+      <thead><tr><th>Ferramenta</th><th>Categoria</th><th>Empresa</th><th>Ciclo</th><th>Cobrança prevista</th><th class="num">Valor</th></tr></thead>
+      <tbody>${d.previsao.map(r=>`
+        <tr>
+          <td>${escapeHtml(r.sub.ferramenta||'—')}${r.sub.plano?` <span style="color:#777;">(${escapeHtml(r.sub.plano)})</span>`:''}</td>
+          <td>${escapeHtml(r.sub.categoria||'—')}</td>
+          <td>${escapeHtml(companyMeta(r.sub.grupo).label)}</td>
+          <td>${escapeHtml(subCycleMeta(r.sub.ciclo).label)}</td>
+          <td>${formatDateBR(r.data)}</td>
+          <td class="num">${fmtBRL(r.valor)}</td>
+        </tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="5" class="num">Total previsto (${d.previsao.length})</td><td class="num">${fmtBRL(d.totalPrevisto)}</td></tr></tfoot>
+    </table>` : `<div class="pr-vazio">Nenhuma cobrança prevista para esse mês.</div>`}
     ${resumoTabela('Resumo por empresa', 'Empresa', d.porEmpresa)}
     ${resumoTabela('Resumo por categoria', 'Categoria', d.porCategoria)}
     ${inventario}
