@@ -4962,27 +4962,33 @@ function proximoMesDe(dataRef){
   const d = new Date(partes[0], partes[1], 1);
   return `${d.getFullYear()}-${pad2(d.getMonth()+1)}`;
 }
-// Datas de cobrança de UMA assinatura que caem dentro de um mês (YYYY-MM).
-// Avança a partir do vencimento atual no ritmo do ciclo — assim mensal cai
-// todo mês, e trimestral/semestral/anual só aparecem no mês em que realmente
-// vão ser cobradas. Nunca volta no tempo: cobrança passada é histórico, não
-// previsão.
+// Cobrança de UMA assinatura dentro de um mês (YYYY-MM), pela cadência do ciclo.
+// Trata o vencimento atual como âncora da cadência e mede quantos meses separam
+// ele do mês alvo: se essa distância for múltipla do ciclo, há cobrança nesse mês.
+// Vale para os dois lados de propósito — dar baixa empurra o vencimento pra
+// frente, então uma mensal paga adiantada em agosto fica com vencimento em
+// outubro; ela continua tendo cobrança em setembro e precisa entrar na previsão.
+// Já trimestral/semestral/anual só batem o múltiplo no mês em que são cobradas.
 function subDueDatesInMonth(sub, anoMes){
   const out = [];
   if(!sub.dataVencimento) return out;
-  const inicio = anoMes+'-01';
-  const fim = ultimoDiaDoMes(anoMes);
   const meses = SUB_CYCLE_MONTHS[sub.ciclo];
   if(!meses){
     // pagamento único / outra periodicidade: só se o vencimento cair no mês
+    const inicio = anoMes+'-01';
+    const fim = ultimoDiaDoMes(anoMes);
     if(sub.dataVencimento>=inicio && sub.dataVencimento<=fim) out.push(sub.dataVencimento);
     return out;
   }
-  const d = new Date(sub.dataVencimento+'T00:00:00');
-  const txt = ()=>`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-  let guard = 0;
-  while(txt() < inicio && guard < 400){ d.setMonth(d.getMonth()+meses); guard++; }
-  while(txt() <= fim && guard < 400){ out.push(txt()); d.setMonth(d.getMonth()+meses); guard++; }
+  const base = new Date(sub.dataVencimento+'T00:00:00');
+  const alvo = anoMes.split('-').map(Number);
+  const difMeses = (alvo[0]-base.getFullYear())*12 + ((alvo[1]-1)-base.getMonth());
+  if(difMeses % meses !== 0) return out; // esse mês não cai na cadência
+  const d = new Date(base.getFullYear(), base.getMonth()+difMeses, 1);
+  // mês curto: vencimento dia 31 vira o último dia do mês, sem vazar pro seguinte
+  const ultimoDia = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+  d.setDate(Math.min(base.getDate(), ultimoDia));
+  out.push(`${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`);
   return out;
 }
 // Junta tudo que compõe o fechamento de um período: o que foi pago, o que
