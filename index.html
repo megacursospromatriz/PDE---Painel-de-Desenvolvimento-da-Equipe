@@ -984,6 +984,7 @@ const ICONS = {
   users:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   check:'<polyline points="20 6 9 17 4 12"/>',
   x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  search:'<circle cx="11" cy="11" r="7"/><line x1="16.2" y1="16.2" x2="21" y2="21"/>',
   bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
   chat:'<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>',
   send:'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
@@ -1049,6 +1050,7 @@ const state = {
   subQuickFilter:'mes_atual',
   subSort:{field:'dataVencimento', dir:'asc'},
   finYear: new Date().getFullYear(),
+  finComprasSearch:'',
   finComprasFilterMonth:'',
   finComprasFilterYear:'',
   repasses:[],
@@ -4353,9 +4355,17 @@ function subscriptionsSummary(allSubs, dateFilter){
     .filter(s=>subMonthlyEquivalent(s)>0)
     .map(s=>({sub:s, subId:s.id, data:s.dataVencimento, valor:subMonthlyEquivalent(s)*12, tipo:subCycleMeta(s.ciclo).label+' · '+fmtBRL(subMonthlyEquivalent(s))+'/mês'}));
   const detAtivas = activeIsh.map(s=>({sub:s, subId:s.id, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:subStatusMeta(subEffectiveStatus(s)).label}));
+  // Só o que passou da data mesmo. Antes esse card somava 'vencida' com
+  // 'pendente' (vence em até 7 dias) e mostrava como atrasado algo que ainda
+  // nem venceu. Quem está só chegando perto continua em "Vencem em 30 dias".
   const detVencidasPendentes = allSubs
-    .filter(s=>['vencida','pendente'].includes(subEffectiveStatus(s)))
-    .map(s=>({sub:s, subId:s.id, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:subStatusMeta(subEffectiveStatus(s)).label}));
+    .filter(s=>subEffectiveStatus(s)==='vencida')
+    .map(s=>{
+      const d = subDaysUntilDue(s);
+      const atraso = d===null ? null : Math.abs(d);
+      return {sub:s, subId:s.id, data:s.dataVencimento, valor:Number(s.valor)||0,
+        tipo: atraso===null ? 'Vencida' : `Vencida há ${atraso} dia(s)`};
+    });
   // "Vencem em 30 dias" olha a própria data de vencimento. Antes usava
   // subDaysUntilRenewal (vencimento + 1 ciclo inteiro), o que empurrava o prazo
   // pra frente demais e deixava o card em 0 mesmo com contas vencendo na semana.
@@ -4439,7 +4449,7 @@ function subscriptionsTemplate(){
       <div class="fin-summary-card" data-sub-card="aPagarMes"><div class="fsc-label">A pagar no mês</div><div class="fsc-value" style="color:#c9821f;">${fmtBRL(summary.aPagarMes)}</div><div class="fsc-hint">ver lançamentos</div></div>
       <div class="fin-summary-card" data-sub-card="custoAnual"><div class="fsc-label">Custo anual estimado</div><div class="fsc-value">${fmtBRL(summary.custoAnual)}</div><div class="fsc-hint">ver lançamentos</div></div>
       <div class="fin-summary-card" data-sub-card="ativas"><div class="fsc-label">Assinaturas ativas</div><div class="fsc-value">${summary.ativasCount}</div><div class="fsc-hint">ver lançamentos</div></div>
-      <div class="fin-summary-card" data-sub-card="vencidasPendentes"><div class="fsc-label">Vencidas / Pendentes</div><div class="fsc-value" style="color:var(--red);">${summary.vencidasPendentes}</div><div class="fsc-hint">ver lançamentos</div></div>
+      <div class="fin-summary-card" data-sub-card="vencidasPendentes"><div class="fsc-label">Vencidas</div><div class="fsc-value" style="color:var(--red);">${summary.vencidasPendentes}</div><div class="fsc-hint">ver lançamentos</div></div>
       <div class="fin-summary-card" data-sub-card="proximosVencimentos"><div class="fsc-label">Vencem em 30 dias</div><div class="fsc-value" style="color:#c9821f;">${summary.proximosVencimentos}</div><div class="fsc-hint">ver lançamentos</div></div>
       <div class="fin-summary-card" data-sub-card="totalDesembolsado"><div class="fsc-label">Total desembolsado${(f.dataInicio||f.dataFim)?' (período)':''}</div><div class="fsc-value">${fmtBRL(summary.totalDesembolsado)}</div><div class="fsc-hint">ver lançamentos</div></div>
     </div>
@@ -5197,7 +5207,7 @@ const SUB_CARD_TITLES = {
   aPagarMes: 'A pagar no mês',
   custoAnual: 'Custo anual estimado',
   ativas: 'Assinaturas ativas',
-  vencidasPendentes: 'Vencidas / Pendentes',
+  vencidasPendentes: 'Assinaturas vencidas',
   proximosVencimentos: 'Vencem em 30 dias',
   totalDesembolsado: 'Total desembolsado',
 };
@@ -5592,6 +5602,29 @@ function finComprasTemplate(){
   if(state.companyFilter!=='todas') rows = rows.filter(r=>r.brand===state.companyFilter);
   if(state.finComprasFilterMonth) rows = rows.filter(r=>r.date && r.date.slice(5,7)===pad2(Number(state.finComprasFilterMonth)));
   if(state.finComprasFilterYear) rows = rows.filter(r=>r.date && r.date.slice(0,4)===String(state.finComprasFilterYear));
+  // Busca livre: varre item, fornecedor, projeto, empresa, unidade, a data já
+  // formatada e os valores. Cada palavra digitada precisa aparecer em algum
+  // lugar da linha, então "gasolina treicy" acha mesmo com as palavras
+  // separadas em colunas diferentes.
+  // tira acento dos dois lados: quem digita "iluminacao" precisa achar "Iluminação"
+  const semAcento = (s)=>String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const buscaCompras = semAcento(state.finComprasSearch).trim();
+  if(buscaCompras){
+    const termos = buscaCompras.split(/\s+/);
+    rows = rows.filter(r=>{
+      const rowTotal = (Number(r.qty)||0)*(Number(r.unitPrice)||0);
+      const alvo = [
+        r.item, r.supplier, r.project, r.unit,
+        companyMeta(r.brand).label,
+        r.date ? formatDateBR(r.date) : '',
+        r.date || '',
+        String(r.qty||''), fmtBRL(r.unitPrice), fmtBRL(rowTotal),
+        String(r.unitPrice||''), String(rowTotal)
+      ].join(' ');
+      const alvoNormalizado = semAcento(alvo);
+      return termos.every(t=>alvoNormalizado.includes(t));
+    });
+  }
   const total = rows.reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.unitPrice)||0), 0);
   const availableYears = [...new Set(state.finPurchases.map(r=>r.date&&r.date.slice(0,4)).filter(Boolean))].sort((a,b)=>b-a);
   if(!availableYears.includes(String(new Date().getFullYear()))) availableYears.unshift(String(new Date().getFullYear()));
@@ -5606,6 +5639,10 @@ function finComprasTemplate(){
     <div class="toolbar" style="margin-top:0;">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span class="mono" style="font-size:11px;color:var(--text-400);">${rows.length} compra(s) · Total: ${fmtBRL(total)}</span>
+        <div style="position:relative;display:flex;align-items:center;">
+          <span style="position:absolute;left:10px;display:flex;color:var(--text-400);pointer-events:none;">${icon('search',14)}</span>
+          <input type="text" id="finComprasSearch" placeholder="Buscar item, fornecedor, projeto..." value="${escapeHtml(state.finComprasSearch||'')}" style="padding:8px 12px 8px 31px;border:1.5px solid var(--line);border-radius:9px;font-size:12.5px;font-weight:600;min-width:250px;">
+        </div>
         <select id="finComprasFilterMonth" style="padding:8px 12px;border:1.5px solid var(--line);border-radius:9px;font-size:12.5px;font-weight:600;">
           <option value="">Todos os meses</option>
           ${MONTH_NAMES_PT.map((m,i)=>`<option value="${i+1}" ${Number(state.finComprasFilterMonth)===i+1?'selected':''}>${m}</option>`).join('')}
@@ -5614,7 +5651,7 @@ function finComprasTemplate(){
           <option value="">Todos os anos</option>
           ${availableYears.map(y=>`<option value="${y}" ${String(state.finComprasFilterYear)===String(y)?'selected':''}>${y}</option>`).join('')}
         </select>
-        ${(state.finComprasFilterMonth||state.finComprasFilterYear) ? `<button class="btn btn-ghost btn-sm" id="finComprasFilterClear">${icon('x',13)} Limpar</button>` : ''}
+        ${(state.finComprasFilterMonth||state.finComprasFilterYear||state.finComprasSearch) ? `<button class="btn btn-ghost btn-sm" id="finComprasFilterClear">${icon('x',13)} Limpar</button>` : ''}
       </div>
       <button class="btn btn-primary" id="finNewPurchaseBtn">${icon('plus',16)} Nova compra</button>
     </div>
@@ -5645,7 +5682,9 @@ function finComprasTemplate(){
           }).join('')}
         </tbody>
       </table>
-    </div>` : `<div class="empty-state">${icon('financeiro',40)}<h3>Nenhuma compra registrada</h3><p>Clique em "Nova compra" para começar.</p></div>`}
+    </div>` : (state.finComprasSearch||state.finComprasFilterMonth||state.finComprasFilterYear)
+      ? `<div class="empty-state">${icon('search',40)}<h3>Nada encontrado</h3><p>Nenhuma compra bate com a busca ou os filtros atuais.</p></div>`
+      : `<div class="empty-state">${icon('financeiro',40)}<h3>Nenhuma compra registrada</h3><p>Clique em "Nova compra" para começar.</p></div>`}
   `;
 }
 function openPurchaseModal(existing){
@@ -6117,8 +6156,18 @@ function attachFinanceiroEvents(){
   if(comprasMonthF) comprasMonthF.addEventListener('change', ()=>{ state.finComprasFilterMonth = comprasMonthF.value; render(); });
   const comprasYearF = document.getElementById('finComprasFilterYear');
   if(comprasYearF) comprasYearF.addEventListener('change', ()=>{ state.finComprasFilterYear = comprasYearF.value; render(); });
+  const comprasSearchF = document.getElementById('finComprasSearch');
+  if(comprasSearchF) comprasSearchF.addEventListener('input', ()=>{
+    state.finComprasSearch = comprasSearchF.value;
+    // guarda a posição do cursor: render() refaz o input do zero e sem isso
+    // o foco pularia pro fim a cada tecla
+    const pos = comprasSearchF.selectionStart;
+    render();
+    const novo = document.getElementById('finComprasSearch');
+    if(novo){ novo.focus(); novo.setSelectionRange(pos, pos); }
+  });
   const comprasClearF = document.getElementById('finComprasFilterClear');
-  if(comprasClearF) comprasClearF.addEventListener('click', ()=>{ state.finComprasFilterMonth=''; state.finComprasFilterYear=''; render(); });
+  if(comprasClearF) comprasClearF.addEventListener('click', ()=>{ state.finComprasFilterMonth=''; state.finComprasFilterYear=''; state.finComprasSearch=''; render(); });
   const newP = document.getElementById('finNewPurchaseBtn'); if(newP) newP.addEventListener('click', ()=>openPurchaseModal());
   document.querySelectorAll('[data-fin-edit-purchase]').forEach(b=>b.addEventListener('click', ()=>{
     const r = state.finPurchases.find(x=>x.id===b.dataset.finEditPurchase); if(r) openPurchaseModal(r);
