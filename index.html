@@ -911,6 +911,7 @@ const ALL_TABS = [
   {key:'user_agenda', label:'Agenda Usuário'},
   {key:'history', label:'Histórico'},
   {key:'financeiro', label:'Financeiro'},
+  {key:'implantacao', label:'Protocolo de Implantação'},
   {key:'overview', label:'Visão Geral'},
   {key:'team', label:'Equipe'},
 ];
@@ -1040,6 +1041,11 @@ const state = {
   noticesShowRead:false,
   gcalHelpDismissed:false,
   historyFilterUser:'todos',
+  implUnits:[],
+  implItems:[],
+  implSelectedUnit:null,
+  implStageFilter:'todas',
+  implPhotoCache:{},
   finPurchases:[],
   finSuppliers:[],
   finProjects:[],
@@ -1211,6 +1217,9 @@ async function loadData(){
         // "Histórico" segue o mesmo padrão de Visão Geral/Equipe — só para masters,
         // por padrão, mas ainda ajustável manualmente por usuário.
         if(u.role==='master' && !u.tabs.includes('history')){ u.tabs.push('history'); migrated = true; }
+        // "Protocolo de Implantação" entra no mesmo padrão: liberado só para
+        // masters por padrão, e manualmente para quem mais precisar.
+        if(u.role==='master' && !u.tabs.includes('implantacao')){ u.tabs.push('implantacao'); migrated = true; }
         // "Repasse" é liberado por padrão para colaboradores (eles usam pra
         // enviar nota fiscal); masters continuam precisando de liberação manual.
         if(u.role!=='master' && !u.tabs.includes('repasse')){ u.tabs.push('repasse'); migrated = true; }
@@ -1249,6 +1258,14 @@ async function loadData(){
     const r = await window.storage.get('mega_chat_messages', true);
     state.chatMessages = r ? JSON.parse(r.value) : [];
   }catch(e){ state.chatMessages = []; }
+  try{
+    const r = await window.storage.get('mega_impl_units', true);
+    state.implUnits = r ? JSON.parse(r.value) : [];
+  }catch(e){ state.implUnits = []; }
+  try{
+    const r = await window.storage.get('mega_impl_items', true);
+    state.implItems = r ? JSON.parse(r.value) : [];
+  }catch(e){ state.implItems = []; }
   try{
     const r = await window.storage.get('mega_fin_purchases', true);
     state.finPurchases = r ? JSON.parse(r.value) : [];
@@ -1731,6 +1748,8 @@ window.__handleRemoteUpdate = async function(key, rawValue){
       if(toMark.length){ toMark.forEach(m=>m.read=true); saveChatMessages(); }
     }
   }
+  else if(key==='mega_impl_units' && JSON.stringify(parsed)!==JSON.stringify(state.implUnits)){ state.implUnits = parsed; changed = true; }
+  else if(key==='mega_impl_items' && JSON.stringify(parsed)!==JSON.stringify(state.implItems)){ state.implItems = parsed; changed = true; }
   else if(key==='mega_fin_purchases' && JSON.stringify(parsed)!==JSON.stringify(state.finPurchases)){ state.finPurchases = parsed; changed = true; }
   else if(key==='mega_fin_suppliers' && JSON.stringify(parsed)!==JSON.stringify(state.finSuppliers)){ state.finSuppliers = parsed; changed = true; }
   else if(key==='mega_fin_projects' && JSON.stringify(parsed)!==JSON.stringify(state.finProjects)){ state.finProjects = parsed; changed = true; }
@@ -1863,12 +1882,13 @@ function shellTemplate(){
     {key:'user_agenda', label:'Agenda Usuário', icon:'calendarGrid'},
     {key:'history', label:'Histórico', icon:'history'},
     {key:'financeiro', label:'Financeiro', icon:'financeiro'},
+    {key:'implantacao', label:'Implantação', icon:'building'},
     {key:'overview', label:'Visão Geral', icon:'grid'},
     {key:'team', label:'Equipe', icon:'users'},
   ];
   const myTabs = userTabs(u);
   const navItems = allNavItems.filter(n=>myTabs.includes(n.key));
-  const titles = {agenda:'Compromissos', monthcal:'Agenda Mensal', daily:'Agenda do Dia', checklist:'Checklist', w2h:'5W2H', repasse:'Repasse', notices:'Avisos', chat:'Chat', user_agenda:'Agenda Usuário', history:'Histórico', financeiro:'Financeiro', overview:'Visão Geral do Grupo', team:'Gerenciar Equipe'};
+  const titles = {agenda:'Compromissos', monthcal:'Agenda Mensal', daily:'Agenda do Dia', checklist:'Checklist', w2h:'5W2H', repasse:'Repasse', notices:'Avisos', chat:'Chat', user_agenda:'Agenda Usuário', history:'Histórico', financeiro:'Financeiro', implantacao:'Protocolo de Implantação', overview:'Visão Geral do Grupo', team:'Gerenciar Equipe'};
   const subs = {
     agenda:'Suas tarefas, reuniões e compromissos.',
     monthcal:'Visão do mês inteiro — clique em um dia para ver ou cadastrar compromissos.',
@@ -1876,6 +1896,7 @@ function shellTemplate(){
     user_agenda:'Visualize, crie e edite a agenda mensal de qualquer usuário.',
     history:'Tudo que aconteceu no painel, em um só lugar.',
     financeiro:'Controle de compras, fornecedores e projetos.',
+    implantacao:'Unidades em implantação — itens, responsáveis, etapas e fotos.',
     repasse:'Valores de repasse, nota fiscal e dados bancários.',
     checklist:'Lista rápida de pendências por colaborador.',
     w2h:'Plano de ação mensal — preencha todo dia 25.',
@@ -1922,7 +1943,7 @@ function shellTemplate(){
         </div>
       </header>
       <div class="content" id="viewContent">
-        ${state.view==='agenda' ? agendaTemplate() : state.view==='monthcal' ? monthCalTemplate() : state.view==='daily' ? dailyTemplate() : state.view==='checklist' ? checklistTemplate() : state.view==='w2h' ? w2hTemplate() : state.view==='repasse' ? repasseTemplate() : state.view==='notices' ? noticesTemplate() : state.view==='chat' ? chatTemplate() : state.view==='user_agenda' ? userAgendaTemplate() : state.view==='history' ? historyTemplate() : state.view==='financeiro' ? financeiroTemplate() : state.view==='overview' ? overviewTemplate() : teamTemplate()}
+        ${state.view==='agenda' ? agendaTemplate() : state.view==='monthcal' ? monthCalTemplate() : state.view==='daily' ? dailyTemplate() : state.view==='checklist' ? checklistTemplate() : state.view==='w2h' ? w2hTemplate() : state.view==='repasse' ? repasseTemplate() : state.view==='notices' ? noticesTemplate() : state.view==='chat' ? chatTemplate() : state.view==='user_agenda' ? userAgendaTemplate() : state.view==='history' ? historyTemplate() : state.view==='financeiro' ? financeiroTemplate() : state.view==='implantacao' ? implantacaoTemplate() : state.view==='overview' ? overviewTemplate() : teamTemplate()}
       </div>
     </main>
   </div>`;
@@ -1953,6 +1974,7 @@ function attachShellEvents(){
   if(state.view==='history') attachHistoryEvents();
   if(state.view==='financeiro') attachFinanceiroEvents();
   if(state.view==='repasse') attachRepasseEvents();
+  if(state.view==='implantacao') attachImplantacaoEvents();
   if(state.view==='overview') attachOverviewEvents();
   if(state.view==='team') attachTeamEvents();
 }
@@ -5596,8 +5618,479 @@ function finComprasGroupTemplate(){
   `;
 }
 
-/* ---------- Compras ---------- */
-function finComprasTemplate(){
+/* ================= PROTOCOLO DE IMPLANTAÇÃO ================= */
+const IMPL_STAGES = [
+  {key:'pendente',   label:'Pendente',      color:'#6b7280', bg:'#f1f2f4'},
+  {key:'cotacao',    label:'Em cotação',    color:'#2148c9', bg:'#e8edfb'},
+  {key:'negociacao', label:'Em negociação', color:'#7048c9', bg:'#efe8fb'},
+  {key:'contratado', label:'Contratado',    color:'#0ea5e9', bg:'#e0f2fe'},
+  {key:'execucao',   label:'Em execução',   color:'#c9821f', bg:'#fdf1de'},
+  {key:'concluido',  label:'Concluído',     color:'#1f8f5f', bg:'#e4f7ee'},
+];
+function implStageMeta(k){ return IMPL_STAGES.find(s=>s.key===k) || IMPL_STAGES[0]; }
+
+/* --- fotos ---
+   Cada foto vai num registro próprio no Firestore (mega_impl_foto_<id>), igual
+   ao que já é feito com os avatares. Se fossem junto do item, a lista inteira
+   viraria um documento gigante e estouraria o limite de 1 MB por documento. */
+const IMPL_PHOTO_MAX_DIM = 1280;
+const IMPL_PHOTO_MAX_BYTES = 700000; // folga confortável abaixo do limite do Firestore
+function implPhotoKey(id){ return 'mega_impl_foto_'+id; }
+// Redimensiona mantendo a proporção (diferente do avatar, que corta em quadrado)
+// e vai baixando a qualidade até caber no limite.
+function implResizePhoto(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = (e)=>{
+      const img = new Image();
+      img.onload = ()=>{
+        let dim = IMPL_PHOTO_MAX_DIM;
+        let qualidade = 0.72;
+        let saida = '';
+        for(let tentativa=0; tentativa<6; tentativa++){
+          const escala = Math.min(1, dim/Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width*escala);
+          canvas.height = Math.round(img.height*escala);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          saida = canvas.toDataURL('image/jpeg', qualidade);
+          if(saida.length <= IMPL_PHOTO_MAX_BYTES) break;
+          if(qualidade > 0.45) qualidade -= 0.12; else dim = Math.round(dim*0.8);
+        }
+        if(saida.length > IMPL_PHOTO_MAX_BYTES) reject(new Error('imagem muito pesada'));
+        else resolve(saida);
+      };
+      img.onerror = ()=>reject(new Error('arquivo não é uma imagem válida'));
+      img.src = e.target.result;
+    };
+    reader.onerror = ()=>reject(new Error('falha ao ler o arquivo'));
+    reader.readAsDataURL(file);
+  });
+}
+async function implSavePhotoData(id, dataUrl){
+  await window.storage.set(implPhotoKey(id), dataUrl, true);
+  state.implPhotoCache[id] = dataUrl;
+}
+async function implLoadPhoto(id){
+  if(state.implPhotoCache[id]) return state.implPhotoCache[id];
+  try{
+    const r = await window.storage.get(implPhotoKey(id), true);
+    state.implPhotoCache[id] = r.value;
+    return r.value;
+  }catch(e){ return null; }
+}
+async function implDeletePhotoData(id){
+  try{ await window.storage.delete(implPhotoKey(id), true); }catch(e){}
+  delete state.implPhotoCache[id];
+}
+async function saveImplUnits(){
+  try{ await window.storage.set('mega_impl_units', JSON.stringify(state.implUnits), true); }
+  catch(e){ toast('Erro ao salvar as unidades. Tente novamente.', 'err'); }
+}
+async function saveImplItems(){
+  try{ await window.storage.set('mega_impl_items', JSON.stringify(state.implItems), true); }
+  catch(e){ toast('Erro ao salvar os itens. Tente novamente.', 'err'); }
+}
+function implItemsOf(unitId){ return state.implItems.filter(i=>i.unitId===unitId); }
+function implUnitProgress(unitId){
+  const itens = implItemsOf(unitId);
+  if(!itens.length) return {total:0, concluidos:0, pct:0};
+  const concluidos = itens.filter(i=>i.etapa==='concluido').length;
+  return {total:itens.length, concluidos, pct:Math.round((concluidos/itens.length)*100)};
+}
+function implResponsavelNomes(ids){
+  return (ids||[]).map(id=>{ const u = userById(id); return u ? u.name : null; }).filter(Boolean);
+}
+function implantacaoTemplate(){
+  const unidade = state.implUnits.find(u=>u.id===state.implSelectedUnit);
+  if(!unidade) return implUnitsListTemplate();
+  let itens = implItemsOf(unidade.id);
+  if(state.implStageFilter!=='todas') itens = itens.filter(i=>i.etapa===state.implStageFilter);
+  itens.sort((a,b)=>{
+    const oa = IMPL_STAGES.findIndex(s=>s.key===a.etapa);
+    const ob = IMPL_STAGES.findIndex(s=>s.key===b.etapa);
+    if(oa!==ob) return oa-ob;
+    return (a.titulo||'').localeCompare(b.titulo||'');
+  });
+  const prog = implUnitProgress(unidade.id);
+  const todosItens = implItemsOf(unidade.id);
+  const totalInvestido = todosItens.reduce((s,i)=>s+(Number(i.valor)||0), 0);
+  return `
+    <button class="btn btn-ghost btn-sm" id="implVoltarBtn" style="margin-bottom:14px;">${icon('chevronLeft',14)} Todas as unidades</button>
+    <div class="table-wrap" style="padding:18px 20px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:240px;">
+          <h2 style="margin:0 0 4px;font-family:'Space Grotesk';font-size:19px;">${escapeHtml(unidade.nome)}</h2>
+          <div class="hint-text" style="margin:0;">${escapeHtml(unidade.endereco||'Sem endereço cadastrado')}${unidade.cidade?' · '+escapeHtml(unidade.cidade):''}</div>
+          ${unidade.previsao ? `<div class="hint-text" style="margin:4px 0 0;">Previsão de abertura: <strong>${formatDateBR(unidade.previsao)}</strong></div>` : ''}
+          ${unidade.obs ? `<div class="hint-text" style="margin:4px 0 0;">${escapeHtml(unidade.obs)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" id="implEditUnitBtn">${icon('edit',14)} Editar</button>
+          <button class="btn btn-primary" id="implNewItemBtn">${icon('plus',15)} Novo item</button>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:var(--text-400);margin-bottom:5px;">
+          <span>${prog.concluidos} de ${prog.total} item(ns) concluído(s)</span>
+          <span>${prog.pct}%${totalInvestido?` · ${fmtBRL(totalInvestido)} previsto`:''}</span>
+        </div>
+        <div style="height:8px;background:var(--paper);border-radius:100px;overflow:hidden;">
+          <div style="height:100%;width:${prog.pct}%;background:var(--green);border-radius:100px;transition:width .2s ease;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="chip-row" style="margin-bottom:14px;">
+      <button class="chip ${state.implStageFilter==='todas'?'active':''}" data-impl-stage-filter="todas">Todas as etapas (${todosItens.length})</button>
+      ${IMPL_STAGES.map(s=>{
+        const n = todosItens.filter(i=>i.etapa===s.key).length;
+        return `<button class="chip ${state.implStageFilter===s.key?'active':''}" data-impl-stage-filter="${s.key}">
+          <span class="dot" style="background:${s.color}"></span>${s.label} (${n})
+        </button>`;
+      }).join('')}
+    </div>
+    ${itens.length ? `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Item</th><th>Responsáveis</th><th>Etapa</th><th>Valor</th><th>Prazo</th><th>Fotos</th><th></th></tr></thead>
+        <tbody>
+          ${itens.map(i=>{
+            const sm = implStageMeta(i.etapa);
+            const nomes = implResponsavelNomes(i.responsaveis);
+            const qtdFotos = (i.fotos||[]).length;
+            return `<tr>
+              <td style="font-weight:600;">${escapeHtml(i.titulo||'—')}${i.descricao?`<div class="hint-text">${escapeHtml(i.descricao)}</div>`:''}</td>
+              <td>${nomes.length ? escapeHtml(nomes.join(', ')) : '<span style="color:var(--text-400);">—</span>'}</td>
+              <td><span class="status-pill" style="background:${sm.bg};color:${sm.color};"><span class="dot" style="background:${sm.color}"></span>${sm.label}</span></td>
+              <td class="mono">${i.valor?fmtBRL(i.valor):'—'}</td>
+              <td class="mono">${i.prazo?formatDateBR(i.prazo):'—'}</td>
+              <td>
+                <button class="btn btn-ghost btn-sm" data-impl-fotos="${i.id}" title="Ver e adicionar fotos">
+                  ${icon('image',14)} ${qtdFotos || 'Adicionar'}
+                </button>
+              </td>
+              <td>
+                <div class="row-actions">
+                  <button class="btn btn-icon" data-impl-edit-item="${i.id}" title="Editar">${icon('edit',14)}</button>
+                  <button class="btn btn-icon" data-impl-del-item="${i.id}" title="Excluir" style="color:var(--red);border-color:#f1c9c9;">${icon('trash',14)}</button>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>` : `<div class="empty-state">${icon('clipboard',40)}<h3>${todosItens.length?'Nenhum item nesta etapa':'Nenhum item cadastrado'}</h3><p>${todosItens.length?'Troque o filtro de etapa para ver os demais.':'Clique em "Novo item" para começar — aluguel do ponto, reforma, mobiliário, alvarás...'}</p></div>`}
+  `;
+}
+function implUnitsListTemplate(){
+  return `
+    <div class="toolbar" style="margin-top:0;">
+      <span class="mono" style="font-size:11px;color:var(--text-400);">${state.implUnits.length} unidade(s) em implantação</span>
+      <button class="btn btn-primary" id="implNewUnitBtn">${icon('plus',16)} Nova unidade</button>
+    </div>
+    ${state.implUnits.length ? `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;margin-top:16px;">
+      ${state.implUnits.map(u=>{
+        const prog = implUnitProgress(u.id);
+        return `<div class="table-wrap" style="padding:16px 18px;cursor:pointer;" data-impl-open-unit="${u.id}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+            <div style="flex:1;">
+              <div style="font-family:'Space Grotesk';font-weight:700;font-size:15.5px;">${escapeHtml(u.nome)}</div>
+              <div class="hint-text" style="margin:3px 0 0;">${escapeHtml(u.endereco||'Sem endereço')}</div>
+            </div>
+            ${icon('building',18)}
+          </div>
+          <div style="margin-top:14px;">
+            <div style="display:flex;justify-content:space-between;font-size:11px;font-weight:700;color:var(--text-400);margin-bottom:5px;">
+              <span>${prog.concluidos}/${prog.total} concluído(s)</span><span>${prog.pct}%</span>
+            </div>
+            <div style="height:7px;background:var(--paper);border-radius:100px;overflow:hidden;">
+              <div style="height:100%;width:${prog.pct}%;background:var(--green);border-radius:100px;"></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : `<div class="empty-state">${icon('building',40)}<h3>Nenhuma unidade cadastrada</h3><p>Cadastre a primeira unidade com nome e endereço para começar o protocolo.</p></div>`}
+  `;
+}
+function openImplUnitModal(existing){
+  const isEdit = !!existing;
+  const html = `
+  <div class="modal-backdrop" id="implUnitBackdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>${isEdit?'Editar unidade':'Nova unidade'}</h3>
+        <button class="modal-close" id="implUnitClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        <div class="field"><label for="iuNome">Nome da unidade *</label><input type="text" id="iuNome" value="${escapeHtml(existing&&existing.nome||'')}" placeholder="Ex.: Mega Cursos Pro — Vitória"></div>
+        <div class="field"><label for="iuEndereco">Endereço</label><input type="text" id="iuEndereco" value="${escapeHtml(existing&&existing.endereco||'')}" placeholder="Rua, número, bairro"></div>
+        <div class="grid2">
+          <div class="field"><label for="iuCidade">Cidade / UF</label><input type="text" id="iuCidade" value="${escapeHtml(existing&&existing.cidade||'')}" placeholder="Vitória / ES"></div>
+          <div class="field"><label for="iuPrevisao">Previsão de abertura</label><input type="date" id="iuPrevisao" value="${escapeHtml(existing&&existing.previsao||'')}"></div>
+        </div>
+        <div class="field"><label for="iuObs">Observações</label><input type="text" id="iuObs" value="${escapeHtml(existing&&existing.obs||'')}" placeholder="Opcional"></div>
+      </div>
+      <div class="modal-foot">
+        ${isEdit ? `<button class="btn" style="background:var(--red);color:#fff;margin-right:auto;" id="implUnitDelete">${icon('trash',15)} Excluir unidade</button>` : ''}
+        <button class="btn btn-ghost" id="implUnitCancel">Cancelar</button>
+        <button class="btn btn-primary" id="implUnitSave">${icon('check',15)} Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('modalRoot').innerHTML = html;
+  const close = ()=>{ document.getElementById('modalRoot').innerHTML=''; };
+  document.getElementById('implUnitClose').addEventListener('click', close);
+  document.getElementById('implUnitCancel').addEventListener('click', close);
+  document.getElementById('implUnitBackdrop').addEventListener('click', e=>{ if(e.target.id==='implUnitBackdrop') close(); });
+  const del = document.getElementById('implUnitDelete');
+  if(del) del.addEventListener('click', ()=>{
+    const qtd = implItemsOf(existing.id).length;
+    openConfirmModal('Excluir a unidade "'+existing.nome+'"'+(qtd?' e seus '+qtd+' item(ns), incluindo as fotos':'')+'? Essa ação não pode ser desfeita.', async ()=>{
+      for(const it of implItemsOf(existing.id)){
+        for(const f of (it.fotos||[])) await implDeletePhotoData(f.id);
+      }
+      state.implItems = state.implItems.filter(i=>i.unitId!==existing.id);
+      state.implUnits = state.implUnits.filter(u=>u.id!==existing.id);
+      state.implSelectedUnit = null;
+      await saveImplItems(); await saveImplUnits();
+      toast('Unidade excluída.');
+      render();
+    });
+  });
+  document.getElementById('implUnitSave').addEventListener('click', async ()=>{
+    const nome = document.getElementById('iuNome').value.trim();
+    if(!nome){ toast('Informe o nome da unidade.', 'err'); return; }
+    const dados = {
+      nome,
+      endereco: document.getElementById('iuEndereco').value.trim(),
+      cidade: document.getElementById('iuCidade').value.trim(),
+      previsao: document.getElementById('iuPrevisao').value,
+      obs: document.getElementById('iuObs').value.trim(),
+    };
+    if(isEdit){ Object.assign(existing, dados); toast('Unidade atualizada.'); }
+    else {
+      const nova = {id:uid('iu'), ...dados, createdAt:Date.now()};
+      state.implUnits.push(nova);
+      state.implSelectedUnit = nova.id;
+      toast('Unidade cadastrada.');
+    }
+    await saveImplUnits();
+    close();
+    render();
+  });
+}
+function openImplItemModal(unitId, existing){
+  const isEdit = !!existing;
+  const marcados = new Set((existing && existing.responsaveis) || []);
+  const usuarios = state.users.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const v = (campo)=> escapeHtml((existing && existing[campo]) || '');
+  const html = `
+  <div class="modal-backdrop" id="implItemBackdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>${isEdit?'Editar item':'Novo item'}</h3>
+        <button class="modal-close" id="implItemClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        <div class="field"><label for="iiTitulo">Item *</label><input type="text" id="iiTitulo" value="${v('titulo')}" placeholder="Ex.: Aluguel do ponto"></div>
+        <div class="field"><label for="iiDescricao">Descrição</label><input type="text" id="iiDescricao" value="${v('descricao')}" placeholder="Opcional"></div>
+        <div class="grid2">
+          <div class="field">
+            <label for="iiEtapa">Etapa atual</label>
+            <select id="iiEtapa">${IMPL_STAGES.map(s=>`<option value="${s.key}" ${((existing&&existing.etapa)||'pendente')===s.key?'selected':''}>${s.label}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label for="iiValor">Valor (R$)</label><input type="number" id="iiValor" step="0.01" value="${(existing&&existing.valor!=null)?existing.valor:''}" placeholder="Opcional"></div>
+        </div>
+        <div class="field"><label for="iiPrazo">Prazo</label><input type="date" id="iiPrazo" value="${v('prazo')}"></div>
+        <div class="field">
+          <label>Responsáveis</label>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px;max-height:190px;overflow-y:auto;border:1.5px solid var(--line);border-radius:10px;padding:10px;">
+            ${usuarios.map(u=>`
+              <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                <input type="checkbox" class="ii-resp" value="${u.id}" ${marcados.has(u.id)?'checked':''}>
+                <span>${escapeHtml(u.name||'')}</span>
+              </label>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="implItemCancel">Cancelar</button>
+        <button class="btn btn-primary" id="implItemSave">${icon('check',15)} Salvar</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('modalRoot').innerHTML = html;
+  const close = ()=>{ document.getElementById('modalRoot').innerHTML=''; };
+  document.getElementById('implItemClose').addEventListener('click', close);
+  document.getElementById('implItemCancel').addEventListener('click', close);
+  document.getElementById('implItemBackdrop').addEventListener('click', e=>{ if(e.target.id==='implItemBackdrop') close(); });
+  document.getElementById('implItemSave').addEventListener('click', async ()=>{
+    const titulo = document.getElementById('iiTitulo').value.trim();
+    if(!titulo){ toast('Informe o nome do item.', 'err'); return; }
+    const valorBruto = document.getElementById('iiValor').value;
+    const dados = {
+      titulo,
+      descricao: document.getElementById('iiDescricao').value.trim(),
+      etapa: document.getElementById('iiEtapa').value,
+      valor: valorBruto==='' ? null : Number(valorBruto),
+      prazo: document.getElementById('iiPrazo').value,
+      responsaveis: [...document.querySelectorAll('.ii-resp:checked')].map(c=>c.value),
+      updatedAt: Date.now(),
+    };
+    if(isEdit){ Object.assign(existing, dados); toast('Item atualizado.'); }
+    else { state.implItems.push({id:uid('ii'), unitId:unitId, ...dados, fotos:[], createdAt:Date.now()}); toast('Item cadastrado.'); }
+    await saveImplItems();
+    close();
+    render();
+  });
+}
+function openImplPhotosModal(itemId){
+  const item = state.implItems.find(i=>i.id===itemId);
+  if(!item) return;
+  const fotos = (item.fotos||[]).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  // agrupa por etapa: a foto guarda a etapa em que o item estava quando ela
+  // foi enviada, então o histórico por fase fica preservado mesmo depois que
+  // o item avança.
+  const porEtapa = {};
+  fotos.forEach(f=>{ (porEtapa[f.etapa||'pendente'] = porEtapa[f.etapa||'pendente'] || []).push(f); });
+  const etapasComFoto = IMPL_STAGES.filter(s=>porEtapa[s.key] && porEtapa[s.key].length);
+  const smAtual = implStageMeta(item.etapa);
+  const html = `
+  <div class="modal-backdrop" id="implFotosBackdrop">
+    <div class="modal modal-lg">
+      <div class="modal-head">
+        <h3>Fotos — ${escapeHtml(item.titulo||'')}</h3>
+        <button class="modal-close" id="implFotosClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+          <span class="status-pill" style="background:${smAtual.bg};color:${smAtual.color};"><span class="dot" style="background:${smAtual.color}"></span>${smAtual.label}</span>
+          <button class="btn btn-primary btn-sm" id="implAddFotoBtn">${icon('upload',14)} Adicionar fotos</button>
+          <input type="file" id="implFotoInput" accept="image/*" multiple style="display:none;">
+          <span class="hint-text" style="margin:0;">As fotos entram marcadas com a etapa atual do item.</span>
+        </div>
+        <div id="implFotosStatus"></div>
+        ${fotos.length ? etapasComFoto.map(s=>`
+          <h4 style="font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-400);margin:16px 0 8px;">${s.label} · ${porEtapa[s.key].length} foto(s)</h4>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;">
+            ${porEtapa[s.key].map(f=>`
+              <div style="border:1.5px solid var(--line);border-radius:11px;overflow:hidden;background:#fff;">
+                <div style="aspect-ratio:4/3;background:var(--paper);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                  <img data-impl-foto-img="${f.id}" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">
+                  <span data-impl-foto-load="${f.id}" class="hint-text" style="margin:0;">carregando...</span>
+                </div>
+                <div style="padding:8px 9px;">
+                  <input type="text" data-impl-foto-legenda="${f.id}" value="${escapeHtml(f.legenda||'')}" placeholder="Legenda..." style="width:100%;border:1px solid var(--line);border-radius:7px;padding:5px 7px;font-size:12px;font-weight:600;">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;">
+                    <span class="hint-text" style="margin:0;font-size:10px;">${f.data?formatDateBR(f.data):''}${f.autorNome?' · '+escapeHtml(f.autorNome):''}</span>
+                    <button class="btn btn-icon" data-impl-del-foto="${f.id}" title="Excluir foto" style="color:var(--red);border-color:#f1c9c9;">${icon('trash',13)}</button>
+                  </div>
+                </div>
+              </div>`).join('')}
+          </div>`).join('') : `<div class="empty-state">${icon('image',36)}<h3>Nenhuma foto ainda</h3><p>Use "Adicionar fotos" para registrar o andamento desta etapa.</p></div>`}
+      </div>
+      <div class="modal-foot"><button class="btn btn-ghost" id="implFotosOk">Fechar</button></div>
+    </div>
+  </div>`;
+  const root = document.getElementById('modalRoot');
+  root.innerHTML = html;
+  const close = ()=>{ root.innerHTML=''; render(); };
+  document.getElementById('implFotosClose').addEventListener('click', close);
+  document.getElementById('implFotosOk').addEventListener('click', close);
+  document.getElementById('implFotosBackdrop').addEventListener('click', e=>{ if(e.target.id==='implFotosBackdrop') close(); });
+  // carrega as imagens depois que o modal já está na tela, pra não travar a abertura
+  fotos.forEach(async f=>{
+    const dados = await implLoadPhoto(f.id);
+    const img = root.querySelector('[data-impl-foto-img="'+f.id+'"]');
+    const msg = root.querySelector('[data-impl-foto-load="'+f.id+'"]');
+    if(!img) return;
+    if(dados){ img.src = dados; img.style.display='block'; if(msg) msg.remove(); }
+    else if(msg){ msg.textContent = 'foto não encontrada'; }
+  });
+  const input = document.getElementById('implFotoInput');
+  document.getElementById('implAddFotoBtn').addEventListener('click', ()=>input.click());
+  input.addEventListener('change', async (e)=>{
+    const arquivos = [...(e.target.files||[])];
+    if(!arquivos.length) return;
+    const status = document.getElementById('implFotosStatus');
+    const u = state.currentUser;
+    let ok = 0, falhas = 0;
+    for(let n=0; n<arquivos.length; n++){
+      if(status) status.innerHTML = `<div class="hint-text" style="margin:0 0 10px;">Enviando ${n+1} de ${arquivos.length}...</div>`;
+      try{
+        const dataUrl = await implResizePhoto(arquivos[n]);
+        const fotoId = uid('if');
+        await implSavePhotoData(fotoId, dataUrl);
+        if(!Array.isArray(item.fotos)) item.fotos = [];
+        item.fotos.push({id:fotoId, etapa:item.etapa||'pendente', legenda:'', data:todayStr(), autorId:u?u.id:null, autorNome:u?u.name:''});
+        ok++;
+      }catch(err){ falhas++; }
+    }
+    await saveImplItems();
+    if(ok) toast(ok+' foto(s) adicionada(s).');
+    if(falhas) toast(falhas+' foto(s) não puderam ser enviadas.', 'err');
+    openImplPhotosModal(itemId);
+  });
+  root.querySelectorAll('[data-impl-foto-legenda]').forEach(inp=>inp.addEventListener('change', async ()=>{
+    const f = (item.fotos||[]).find(x=>x.id===inp.dataset.implFotoLegenda);
+    if(!f) return;
+    f.legenda = inp.value.trim();
+    await saveImplItems();
+    toast('Legenda salva.');
+  }));
+  root.querySelectorAll('[data-impl-del-foto]').forEach(b=>b.addEventListener('click', ()=>{
+    const fotoId = b.dataset.implDelFoto;
+    openConfirmModal('Excluir esta foto? Essa ação não pode ser desfeita.', async ()=>{
+      await implDeletePhotoData(fotoId);
+      item.fotos = (item.fotos||[]).filter(x=>x.id!==fotoId);
+      await saveImplItems();
+      toast('Foto excluída.');
+      openImplPhotosModal(itemId);
+    });
+  }));
+}
+function attachImplantacaoEvents(){
+  const novaUnidade = document.getElementById('implNewUnitBtn');
+  if(novaUnidade) novaUnidade.addEventListener('click', ()=>openImplUnitModal());
+  document.querySelectorAll('[data-impl-open-unit]').forEach(c=>c.addEventListener('click', ()=>{
+    state.implSelectedUnit = c.dataset.implOpenUnit;
+    state.implStageFilter = 'todas';
+    render();
+  }));
+  const voltar = document.getElementById('implVoltarBtn');
+  if(voltar) voltar.addEventListener('click', ()=>{ state.implSelectedUnit = null; render(); });
+  const editarUnidade = document.getElementById('implEditUnitBtn');
+  if(editarUnidade) editarUnidade.addEventListener('click', ()=>{
+    const u = state.implUnits.find(x=>x.id===state.implSelectedUnit);
+    if(u) openImplUnitModal(u);
+  });
+  const novoItem = document.getElementById('implNewItemBtn');
+  if(novoItem) novoItem.addEventListener('click', ()=>openImplItemModal(state.implSelectedUnit));
+  document.querySelectorAll('[data-impl-stage-filter]').forEach(b=>b.addEventListener('click', ()=>{
+    state.implStageFilter = b.dataset.implStageFilter;
+    render();
+  }));
+  document.querySelectorAll('[data-impl-edit-item]').forEach(b=>b.addEventListener('click', ()=>{
+    const i = state.implItems.find(x=>x.id===b.dataset.implEditItem);
+    if(i) openImplItemModal(i.unitId, i);
+  }));
+  document.querySelectorAll('[data-impl-del-item]').forEach(b=>b.addEventListener('click', ()=>{
+    const i = state.implItems.find(x=>x.id===b.dataset.implDelItem);
+    if(!i) return;
+    const qtdFotos = (i.fotos||[]).length;
+    openConfirmModal('Excluir o item "'+i.titulo+'"'+(qtdFotos?' e suas '+qtdFotos+' foto(s)':'')+'? Essa ação não pode ser desfeita.', async ()=>{
+      for(const f of (i.fotos||[])) await implDeletePhotoData(f.id);
+      state.implItems = state.implItems.filter(x=>x.id!==i.id);
+      await saveImplItems();
+      toast('Item excluído.');
+      render();
+    });
+  }));
+  document.querySelectorAll('[data-impl-fotos]').forEach(b=>b.addEventListener('click', ()=>openImplPhotosModal(b.dataset.implFotos)));
+}
+
+/* ---------- Compras ---------- */function finComprasTemplate(){
   let rows = state.finPurchases.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
   if(state.companyFilter!=='todas') rows = rows.filter(r=>r.brand===state.companyFilter);
   if(state.finComprasFilterMonth) rows = rows.filter(r=>r.date && r.date.slice(5,7)===pad2(Number(state.finComprasFilterMonth)));
