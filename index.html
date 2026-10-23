@@ -1865,7 +1865,7 @@ function attachLoginEvents(){
 function shellTemplate(){
   const u = state.currentUser;
   const myInvites = pendingInvitesFor(u.id);
-  const myOpenDaily = state.dailyTasks.filter(dt=>dt.assignedTo===u.id && dt.date===todayStr() && dt.status!=='concluido').length;
+  const myOpenDaily = state.dailyTasks.filter(dt=>dt.assignedTo===u.id && (dt.date===todayStr() || !dt.date) && dt.status!=='concluido').length;
   const myUnreadNotices = notificationsForCurrentUser().filter(n=>!n.read).length;
   const myUnreadW2H = notificationsForCurrentUser().filter(n=>!n.read && n.type==='w2h').length;
   const myUnreadRepasse = notificationsForCurrentUser().filter(n=>!n.read && n.type==='repasse').length;
@@ -2599,20 +2599,24 @@ function dailyViewItems(dateStr){
   const u = state.currentUser;
   const canBrowse = canBrowseOthersAgenda(u);
   let agendaItems, dailyItems;
+  // Tarefas do dia sem data combinam com qualquer dia: ficam sempre visíveis,
+  // como uma lista de pendências, até serem concluídas ou ganharem uma data.
+  const doDia = (d)=> d.date===dateStr || !d.date;
   if(canBrowse && state.dailyUserFilter==='todos'){
     const allowedIds = allowedAgendaUserIds(u);
     agendaItems = state.tasks.filter(t=>t.date===dateStr && allowedIds.includes(t.ownerId));
-    dailyItems = state.dailyTasks.filter(d=>d.date===dateStr && allowedIds.includes(d.assignedTo));
+    dailyItems = state.dailyTasks.filter(d=>doDia(d) && allowedIds.includes(d.assignedTo));
   } else if(canBrowse && allowedAgendaUserIds(u).includes(state.dailyUserFilter)){
     agendaItems = tasksForUser(state.dailyUserFilter).filter(t=>t.date===dateStr);
-    dailyItems = state.dailyTasks.filter(d=>d.date===dateStr && d.assignedTo===state.dailyUserFilter);
+    dailyItems = state.dailyTasks.filter(d=>doDia(d) && d.assignedTo===state.dailyUserFilter);
   } else {
     agendaItems = tasksForUser(u.id).filter(t=>t.date===dateStr);
-    dailyItems = state.dailyTasks.filter(d=>d.date===dateStr && d.assignedTo===u.id);
+    dailyItems = state.dailyTasks.filter(d=>doDia(d) && d.assignedTo===u.id);
   }
   const merged = [
     ...agendaItems.map(t=>({_kind:'agenda', _time: t.time || '07:00', data:t})),
-    ...dailyItems.map(d=>({_kind:'daily', _time: d.time || '07:00', data:d})),
+    // sem horário vai pro fim da lista, depois de tudo que tem hora marcada
+    ...dailyItems.map(d=>({_kind:'daily', _time: d.time || '99:99', data:d})),
   ];
   merged.sort((a,b)=> a._time.localeCompare(b._time) || a.data.createdAt-b.data.createdAt);
   return merged;
@@ -2663,7 +2667,8 @@ function dailyCardTemplate(dt, isMaster){
   return `
   <div class="daily-card">
     <div class="daily-card-top">
-      <span class="time-badge" style="${urgency?`background:${urgency.bg};color:${urgency.color};`:'background:var(--blue-100);color:var(--blue-600);'}">${icon('clock',12)} ${escapeHtml(dt.time||'07:00')}</span>
+      ${dt.time ? `<span class="time-badge" style="${urgency?`background:${urgency.bg};color:${urgency.color};`:'background:var(--blue-100);color:var(--blue-600);'}">${icon('clock',12)} ${escapeHtml(dt.time)}</span>`
+        : !dt.date ? `<span class="time-badge" style="background:var(--paper);color:var(--text-400);">${icon('clipboard',12)} sem data</span>` : ''}
       ${isMaster ? `
       <span class="daily-user-chip">
         <span class="avatar" style="width:24px;height:24px;font-size:9.5px;">${avatarInner(assignedUser)}</span>
@@ -2680,7 +2685,7 @@ function dailyCardTemplate(dt, isMaster){
         </button>`).join('')}
     </div>
     <div class="daily-foot">
-      <a href="${googleCalendarUrl(dt)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="text-decoration:none;">${icon('calendarGrid',13)} Google Agenda</a>
+      ${dt.date ? `<a href="${googleCalendarUrl(dt)}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="text-decoration:none;">${icon('calendarGrid',13)} Google Agenda</a>` : ''}
       <button class="btn btn-ghost btn-sm" data-daily-note="${dt.id}">${icon('edit',13)} Nota</button>
       <button class="btn btn-ghost btn-sm" data-daily-history="${dt.id}">${icon('history',13)} Histórico (${hist.length})</button>
       ${canManage ? `
@@ -2779,15 +2784,10 @@ function openDailyTaskModal(existing, presetAssignedTo){
             </div>
             <div class="hint-text">Cada colaborador só pode cadastrar tarefas do dia para si mesmo.</div>
           </div>`}
-          <div class="grid2">
-            <div class="field">
-              <label for="dtDate">Data</label>
-              <input type="date" id="dtDate" value="${existing?existing.date:state.dailyDate}" required>
-            </div>
-            <div class="field">
-              <label for="dtTime">Horário</label>
-              <input type="time" id="dtTime" value="${existing?(existing.time||'07:00'):'07:00'}" required>
-            </div>
+          <div class="field">
+            <label for="dtDate">Data <span style="font-weight:500;color:var(--text-400);">(opcional)</span></label>
+            <input type="date" id="dtDate" value="${existing?(existing.date||''):''}">
+            <div class="hint-text">Deixe em branco se a tarefa não tem dia certo — ela fica na lista até ser concluída.</div>
           </div>
           <div class="field">
             <label for="dtTitle">Tarefa</label>
@@ -2809,16 +2809,17 @@ function openDailyTaskModal(existing, presetAssignedTo){
 
   document.getElementById('dailyModalSave').addEventListener('click', async ()=>{
     const assignedTo = isMaster ? document.getElementById('dtUser').value : u.id;
-    const date = document.getElementById('dtDate').value;
-    const time = document.getElementById('dtTime').value || '07:00';
+    const date = document.getElementById('dtDate').value || '';
+    // o horário saiu do formulário; tarefas antigas mantêm o que já tinham
+    const time = existing ? (existing.time||'') : '';
     const title = document.getElementById('dtTitle').value.trim();
-    if(!assignedTo || !date || !title){ toast('Preencha colaborador, data e a tarefa.', 'err'); return; }
+    if(!assignedTo || !title){ toast('Preencha o colaborador e a tarefa.', 'err'); return; }
     const assignedUser = userById(assignedTo);
     if(isEdit){
       existing.assignedTo = assignedTo;
       existing.assignedToName = assignedUser?.name;
       existing.date = date;
-      existing.time = time;
+      // time fica como estava: o campo de horário não existe mais no formulário
       existing.title = title;
       await saveDailyTasks();
       toast('Tarefa do dia atualizada.');
@@ -2837,7 +2838,7 @@ function openDailyTaskModal(existing, presetAssignedTo){
       if(isMaster && assignedTo!==u.id){
         await addNotification({
           title:'Nova tarefa do dia',
-          message:`${u.name} adicionou uma tarefa do dia para você: "${title}" (${formatDateBR(date)} às ${time}).`,
+          message:`${u.name} adicionou uma tarefa do dia para você: "${title}"${date?` (${formatDateBR(date)}${time?' às '+time:''})`:' (sem data definida)'}.`,
           forUserId: assignedTo, type:'reminder',
         });
       }
@@ -3281,7 +3282,7 @@ function attachUserAgendaEvents(){
 function openUserAgendaDayModal(dateStr){
   const target = userById(state.userAgendaTargetId);
   const dayTasks = tasksForUser(target.id).filter(t=>t.date===dateStr).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
-  const dayDaily = state.dailyTasks.filter(d=>d.assignedTo===target.id && d.date===dateStr).sort((a,b)=>(a.time||'07:00').localeCompare(b.time||'07:00'));
+  const dayDaily = state.dailyTasks.filter(d=>d.assignedTo===target.id && (d.date===dateStr || !d.date)).sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
   const html = `
   <div class="modal-backdrop" id="uaDayBackdrop">
     <div class="modal">
