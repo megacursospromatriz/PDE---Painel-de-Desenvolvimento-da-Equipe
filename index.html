@@ -2773,7 +2773,7 @@ function openDailyTaskModal(existing, presetAssignedTo){
           <div class="field">
             <label for="dtUser">Colaborador</label>
             <select id="dtUser">
-              ${state.users.filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}" ${(existing?existing.assignedTo===x.id:presetAssignedTo===x.id)?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
+              ${[u, ...state.users.filter(x=>x.id!==u.id)].map(x=>`<option value="${x.id}" ${(existing?existing.assignedTo===x.id:(presetAssignedTo?presetAssignedTo===x.id:x.id===u.id))?'selected':''}>${escapeHtml(x.name)}${x.id===u.id?' (você)':''}</option>`).join('')}
             </select>
           </div>` : `
           <div class="field">
