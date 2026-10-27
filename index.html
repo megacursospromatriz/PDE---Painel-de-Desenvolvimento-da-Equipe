@@ -2613,7 +2613,25 @@ function shiftDate(dateStr, delta){
 
 // Junta os compromissos (Agenda) e as tarefas do dia de uma mesma data,
 // ordenados por horário — é a "Agenda do Dia" completa da pessoa.
+// Muita tarefa é cadastrada com a hora escrita no próprio texto ("Reunião 8h30
+// projeto carnaval", "Polo às 9h"). Quando o campo de horário está vazio, lê a
+// hora do título para posicionar o item na agenda. Exige marcador explícito
+// (h ou :) para não confundir com quantidade — "150 alunos", "36 meses".
+const RE_HORA_TITULO = /(?:^|[\s(\[\-–—,.])(?:[àa]s\s*)?([01]?\d|2[0-3])\s*[h:]\s*([0-5]\d)?(?!\d)/i;
+function horaDoTitulo(texto){
+  const m = RE_HORA_TITULO.exec(String(texto||''));
+  if(!m) return null;
+  return pad2(Number(m[1])) + ':' + (m[2] || '00');
+}
+// Sem data o horário não tem onde cair (a tarefa aparece em todos os dias),
+// então a leitura só vale quando existe uma data.
+function horaEfetiva(item){
+  if(item.time) return item.time;
+  if(!item.date) return null;
+  return horaDoTitulo(item.title);
+}
 function dailyViewItems(dateStr){
+
   const u = state.currentUser;
   const canBrowse = canBrowseOthersAgenda(u);
   let agendaItems, dailyItems;
@@ -2634,8 +2652,8 @@ function dailyViewItems(dateStr){
   const merged = [
     // Sem horário vem PRIMEIRO, no topo do dia; depois o que tem hora marcada,
     // em ordem cronológica. Compromisso sem hora entra junto, no mesmo bloco.
-    ...agendaItems.map(t=>({_kind:'agenda', _semHora:!t.time, _time: t.time || '', data:t})),
-    ...dailyItems.map(d=>({_kind:'daily', _semHora:!d.time, _time: d.time || '', data:d})),
+    ...agendaItems.map(t=>{ const h = horaEfetiva(t); return {_kind:'agenda', _semHora:!h, _time: h||'', _horaInferida: !!h && !t.time, data:t}; }),
+    ...dailyItems.map(d=>{ const h = horaEfetiva(d); return {_kind:'daily', _semHora:!h, _time: h||'', _horaInferida: !!h && !d.time, data:d}; }),
   ];
   merged.sort((a,b)=>{
     if(a._semHora !== b._semHora) return a._semHora ? -1 : 1;
@@ -2679,7 +2697,7 @@ function dailyTemplate(){
         const concluido = it.data.status==='concluido' || it.data.taskStatus==='concluido';
         const urg = (!it._semHora && !concluido) ? timeUrgencyMeta(it.data.date, it._time) : null;
         return `<div class="day-row${it._semHora?' day-row-nohour':''}">
-          <div class="day-hour"${urg?` style="color:${urg.color};"`:''}>${it._semHora?'sem<br>hora':escapeHtml(it._time)}</div>
+          <div class="day-hour"${urg?` style="color:${urg.color};"`:''}${it._horaInferida?' title="Horário lido do texto da tarefa — preencha o campo Horário para fixar outro."':''}>${it._semHora?'sem<br>hora':escapeHtml(it._time)}</div>
           <div class="day-row-body">${corpo}</div>
         </div>`;
       }).join('')}
