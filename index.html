@@ -2814,11 +2814,17 @@ function openDailyTaskModal(existing, presetAssignedTo){
             </div>
             <div class="hint-text">Cada colaborador só pode cadastrar tarefas do dia para si mesmo.</div>
           </div>`}
-          <div class="field">
-            <label for="dtDate">Data <span style="font-weight:500;color:var(--text-400);">(opcional)</span></label>
-            <input type="date" id="dtDate" value="${existing?(existing.date||''):''}">
-            <div class="hint-text">Deixe em branco se a tarefa não tem dia certo — ela fica na lista até ser concluída.</div>
+          <div class="grid2">
+            <div class="field">
+              <label for="dtDate">Data <span style="font-weight:500;color:var(--text-400);">(opcional)</span></label>
+              <input type="date" id="dtDate" value="${existing?(existing.date||''):''}">
+            </div>
+            <div class="field">
+              <label for="dtTime">Horário <span style="font-weight:500;color:var(--text-400);">(opcional)</span></label>
+              <input type="time" id="dtTime" value="${existing?(existing.time||''):''}">
+            </div>
           </div>
+          <div class="hint-text" style="margin-top:-6px;">Sem data, a tarefa fica na lista todo dia até ser concluída. Sem horário, ela aparece no topo do dia. O horário só vale quando há uma data.</div>
           <div class="field">
             <label for="dtTitle">Tarefa</label>
             <textarea id="dtTitle" placeholder="Descreva a tarefa a ser feita...">${existing?escapeHtml(existing.title):''}</textarea>
@@ -2840,8 +2846,9 @@ function openDailyTaskModal(existing, presetAssignedTo){
   document.getElementById('dailyModalSave').addEventListener('click', async ()=>{
     const assignedTo = isMaster ? document.getElementById('dtUser').value : u.id;
     const date = document.getElementById('dtDate').value || '';
-    // o horário saiu do formulário; tarefas antigas mantêm o que já tinham
-    const time = existing ? (existing.time||'') : '';
+    // horário sem data não teria onde cair na agenda (a tarefa aparece em todos
+    // os dias), então sem data o horário é descartado
+    const time = date ? (document.getElementById('dtTime').value || '') : '';
     const title = document.getElementById('dtTitle').value.trim();
     if(!assignedTo || !title){ toast('Preencha o colaborador e a tarefa.', 'err'); return; }
     const assignedUser = userById(assignedTo);
@@ -2849,7 +2856,7 @@ function openDailyTaskModal(existing, presetAssignedTo){
       existing.assignedTo = assignedTo;
       existing.assignedToName = assignedUser?.name;
       existing.date = date;
-      // time fica como estava: o campo de horário não existe mais no formulário
+      existing.time = time;
       existing.title = title;
       await saveDailyTasks();
       toast('Tarefa do dia atualizada.');
