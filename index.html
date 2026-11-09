@@ -329,9 +329,13 @@
   .kanban{display:grid;grid-template-columns:repeat(4,minmax(260px,1fr));gap:16px;align-items:start;}
   @media (max-width:1180px){.kanban{grid-template-columns:1fr;}}
   .kcol{background:#eceff8;border-radius:14px;padding:12px;min-height:120px;}
-  .kcol-head{display:flex;align-items:center;gap:8px;padding:6px 6px 12px;font-size:12.5px;font-weight:700;color:var(--text-600);}
-  .kcol-head .dot{width:8px;height:8px;border-radius:50%;}
-  .kcol-head .count{margin-left:auto;font-family:'IBM Plex Mono';font-size:11px;background:#fff;padding:1px 8px;border-radius:100px;color:var(--text-600);}
+  .kcol-head{
+    display:flex;align-items:center;gap:8px;padding:9px 12px;margin-bottom:10px;
+    font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;
+    border-radius:10px;border-left:5px solid currentColor;
+  }
+  .kcol-head .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .kcol-head .count{margin-left:auto;font-family:'IBM Plex Mono';font-size:11px;font-weight:700;background:rgba(255,255,255,.78);padding:2px 9px;border-radius:100px;color:inherit;}
   .kcards{display:flex;flex-direction:column;gap:10px;}
   .kempty{font-size:12px;color:var(--text-400);text-align:center;padding:22px 8px;border:1.5px dashed #d3d8e6;border-radius:10px;}
 
@@ -1880,6 +1884,13 @@ function attachLoginEvents(){
     if(!u){ if(errEl) errEl.textContent = 'Usuário ou senha inválidos.'; return; }
     if(errEl) errEl.textContent = '';
     state.currentUser = u;
+    // Os filtros por pessoa começam na própria pessoa; ver os outros passa a
+    // ser uma escolha no seletor, não o padrão. Repasse fica de fora: o
+    // seletor lá só lista colaboradores, então um master não existe como opção.
+    state.dailyUserFilter = u.id;
+    state.checklistFilterUser = u.id;
+    state.historyFilterUser = u.id;
+    state.repasseFilterUser = (u.role==='user' ? u.id : 'todos');
     state.view = 'agenda';
     ensureAudioCtx();
     requestNotifyPermission();
@@ -2063,7 +2074,7 @@ function agendaTemplate(){
         const col = tasks.filter(t=>t.taskStatus===s.key);
         return `
         <div class="kcol">
-          <div class="kcol-head"><span class="dot" style="background:${s.color}"></span>${s.label}<span class="count">${col.length}</span></div>
+          <div class="kcol-head" style="background:${s.bg};color:${s.color};"><span class="dot" style="background:${s.color}"></span>${s.label}<span class="count">${col.length}</span></div>
           <div class="kcards">
             ${col.length ? col.map(t=>taskCardTemplate(t)).join('') : `<div class="kempty">Nenhuma tarefa</div>`}
           </div>
@@ -3438,33 +3449,34 @@ function openUserAgendaDayModal(dateStr){
 }
 
 /* ================= CHECKLIST ================= */
+// Regra única de "esta tarefa é de fulano": quem manda é o RESPONSÁVEL
+// apontado no item; só quando ninguém foi apontado é que vale quem criou.
+// Reconhece nome completo, só o primeiro nome e listas ("Ana, Luciano",
+// "Eduardo e Luciano"), comparando nome a nome pra não casar "Lucianete"
+// com "Luciano".
+function checklistPertenceA(item, pessoa){
+  if(!pessoa) return false;
+  const resp = (item.responsavel||'').trim().toLowerCase();
+  if(!resp) return item.createdBy===pessoa.id;
+  const nome = (pessoa.name||'').trim().toLowerCase();
+  if(!nome) return item.createdBy===pessoa.id;
+  if(resp.includes(nome)) return true;
+  const primeiro = nome.split(/\s+/)[0] || '';
+  if(primeiro.length < 3) return false;
+  return resp.split(/[,;/|&+]|\se\s/).map(p=>p.trim()).filter(Boolean)
+    .some(p => p===primeiro || p.startsWith(primeiro+' '));
+}
 function checklistTemplate(){
   const u = state.currentUser;
   const isMaster = u.role==='master';
-  let items = isMaster ? state.checklistItems.slice() : state.checklistItems.filter(i=>i.createdBy===u.id);
+  let items = isMaster ? state.checklistItems.slice() : state.checklistItems.filter(i=>checklistPertenceA(i, u));
   if(state.companyFilter!=='todas') items = items.filter(i=>i.company===state.companyFilter);
   if(isMaster && state.checklistFilterUser && state.checklistFilterUser!=='todos'){
-    // se o registro não estiver na lista, cai no próprio usuário da sessão —
-    // "Só os meus" não pode ficar sem referência de nome
-    const targetUser = userById(state.checklistFilterUser)
-      || (state.checklistFilterUser===u.id ? u : null);
-
-    // O nome vazio era o furo do filtro: ''.includes('') é sempre true, então
-    // "Só os meus" deixava passar a lista inteira quando o usuário não era
-    // encontrado em state.users ou estava sem nome cadastrado.
-    const targetName = (targetUser && targetUser.name || '').trim().toLowerCase();
-    const primeiroNome = targetName.split(/\s+/)[0] || '';
-    const ehResponsavel = (texto)=>{
-      const resp = (texto||'').trim().toLowerCase();
-      if(!resp || !targetName) return false;
-      if(resp.includes(targetName)) return true;
-      // "Luciano, Ana" / "Luciano e Ana" / "Luciano; Ana" — compara nome a nome,
-      // pra achar também quem foi anotado só pelo primeiro nome
-      if(primeiroNome.length < 3) return false;
-      return resp.split(/[,;/|&+]|\se\s/).map(p=>p.trim()).filter(Boolean)
-        .some(p => p===primeiroNome || p.startsWith(primeiroNome+' '));
-    };
-    items = items.filter(i=> i.createdBy===state.checklistFilterUser || ehResponsavel(i.responsavel));
+    // se o registro não estiver na lista de usuários, cai no próprio usuário
+    // da sessão — "Só os meus" não pode ficar sem referência de nome
+    const alvo = userById(state.checklistFilterUser)
+      || (state.checklistFilterUser===u.id ? u : {id:state.checklistFilterUser, name:''});
+    items = items.filter(i=>checklistPertenceA(i, alvo));
   }
   if(state.checklistSearch && state.checklistSearch.trim()){
     const q = state.checklistSearch.trim().toLowerCase();
@@ -6881,7 +6893,7 @@ function overviewTemplate(){
           const col = tasksForUser(selected.id).filter(t=>t.taskStatus===s.key);
           return `
           <div class="kcol">
-            <div class="kcol-head"><span class="dot" style="background:${s.color}"></span>${s.label}<span class="count">${col.length}</span></div>
+            <div class="kcol-head" style="background:${s.bg};color:${s.color};"><span class="dot" style="background:${s.color}"></span>${s.label}<span class="count">${col.length}</span></div>
             <div class="kcards">
               ${col.length ? col.map(t=>taskCardTemplate(t)).join('') : `<div class="kempty">Nenhuma tarefa</div>`}
             </div>
