@@ -2756,7 +2756,7 @@ function dailyTemplate(){
         ${canBrowseOthersAgenda(u) ? `
         <select id="dailyUserFilter" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;font-weight:600;color:var(--text-900);">
           <option value="todos" ${state.dailyUserFilter==='todos'?'selected':''}>Todos os colaboradores</option>
-          <option value="${u.id}" ${state.dailyUserFilter===u.id?'selected':''}>Só a minha agenda</option>
+          <option value="${u.id}" ${state.dailyUserFilter===u.id?'selected':''}>${escapeHtml(u.name)} (você)</option>
           ${visibleColleaguesFor(u).map(x=>`<option value="${x.id}" ${state.dailyUserFilter===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
         </select>` : ''}
       </div>
@@ -3164,7 +3164,7 @@ function monthCalTemplate(){
         ${canBrowseOthersAgenda(u) ? `
         <select id="calUserFilter" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;font-weight:600;color:var(--text-900);">
           <option value="todos" ${state.dailyUserFilter==='todos'?'selected':''}>Todos os colaboradores</option>
-          <option value="${u.id}" ${state.dailyUserFilter===u.id?'selected':''}>Só a minha agenda</option>
+          <option value="${u.id}" ${state.dailyUserFilter===u.id?'selected':''}>${escapeHtml(u.name)} (você)</option>
           ${visibleColleaguesFor(u).map(x=>`<option value="${x.id}" ${state.dailyUserFilter===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
         </select>` : ''}
       </div>
