@@ -377,6 +377,10 @@
   .day-row-nohour .daily-card{background:#faf8ff;border-color:#ddd2f7;border-left:4px solid #7048c9;}
   .day-row-nohour .tcard{background:#faf8ff;}
   .day-row-nohour .daily-title{color:#4c2f94;}
+  /* hora livre: só a faixa tracejada, pra enxergar o buraco na agenda */
+  .day-row-vazia .day-hour{color:var(--text-400);font-weight:700;font-size:12.5px;padding-top:9px;}
+  .hour-empty{height:30px;border:1.5px dashed var(--line);border-radius:9px;}
+
   @media (max-width:640px){
     .day-row{gap:9px;}
     .day-hour{flex-basis:46px;font-size:12.5px;padding-top:15px;}
@@ -420,9 +424,19 @@
   }
   .checklist-list{display:flex;flex-direction:column;gap:10px;}
   .checklist-section-label{
-    font-size:11.5px;font-weight:700;color:var(--text-400);text-transform:uppercase;letter-spacing:.05em;
-    margin:20px 0 10px;
+    display:flex;align-items:center;gap:9px;
+    font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+    padding:10px 14px;border-radius:11px;margin:24px 0 11px;
+    border-left:5px solid currentColor;
   }
+  .checklist-section-label .count{
+    margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;
+    background:rgba(255,255,255,.75);padding:2px 9px;border-radius:100px;
+  }
+  /* faixas por situação: vermelho parado, amarelo andando, verde pronto */
+  .cl-sec-pendentes{background:#fbe7e7;color:#b91c1c;}
+  .cl-sec-andamento{background:#fef3c7;color:#a16207;}
+  .cl-sec-concluidos{background:#e4f7ee;color:#157a4a;}
   .checklist-item{
     display:flex;flex-direction:column;gap:10px;background:#fff;border:1.5px solid var(--line);
     border-radius:12px;padding:14px 16px;box-shadow:var(--shadow-card);
@@ -2630,7 +2644,44 @@ function horaEfetiva(item){
   if(!item.date) return null;
   return horaDoTitulo(item.title);
 }
+// A agenda do dia é desenhada como uma grade de horas, das 7h às 19h, mesmo
+// quando não há nada marcado — é assim que dá pra enxergar os buracos livres.
+// A faixa se estica sozinha se existir algo antes das 7h ou depois das 19h.
+const DIA_HORA_INICIO = 7;
+const DIA_HORA_FIM = 19;
+function dailyRowsHtml(items, isMaster){
+  const horaDe = (t)=>Number(String(t||'').slice(0,2));
+  const semHora = items.filter(i=>i._semHora);
+  const comHora = items.filter(i=>!i._semHora);
+  let inicio = DIA_HORA_INICIO, fim = DIA_HORA_FIM;
+  comHora.forEach(i=>{
+    const h = horaDe(i._time);
+    if(!isNaN(h)){ if(h<inicio) inicio = h; if(h>fim) fim = h; }
+  });
+  const linha = (it)=>{
+    const corpo = it._kind==='agenda' ? taskCardTemplate(it.data, true) : dailyCardTemplate(it.data, isMaster);
+    const concluido = it.data.status==='concluido' || it.data.taskStatus==='concluido';
+    const urg = (!it._semHora && !concluido) ? timeUrgencyMeta(it.data.date, it._time) : null;
+    return `<div class="day-row${it._semHora?' day-row-nohour':''}">
+      <div class="day-hour"${urg?` style="color:${urg.color};"`:''}${it._horaInferida?' title="Horário lido do texto da tarefa — preencha o campo Horário para fixar outro."':''}>${it._semHora?'sem<br>hora':escapeHtml(it._time)}</div>
+      <div class="day-row-body">${corpo}</div>
+    </div>`;
+  };
+  let html = semHora.map(linha).join('');
+  for(let h=inicio; h<=fim; h++){
+    const daHora = comHora.filter(i=>horaDe(i._time)===h);
+    if(daHora.length){ html += daHora.map(linha).join(''); }
+    else {
+      html += `<div class="day-row day-row-vazia">
+        <div class="day-hour">${pad2(h)}:00</div>
+        <div class="day-row-body"><div class="hour-empty"></div></div>
+      </div>`;
+    }
+  }
+  return html;
+}
 function dailyViewItems(dateStr){
+
 
   const u = state.currentUser;
   const canBrowse = canBrowseOthersAgenda(u);
@@ -2690,19 +2741,9 @@ function dailyTemplate(){
       </div>
     </div>
 
-    ${items.length ? `
     <div class="daily-list">
-      ${items.map(it => {
-        const corpo = it._kind==='agenda' ? taskCardTemplate(it.data, true) : dailyCardTemplate(it.data, isMaster);
-        const concluido = it.data.status==='concluido' || it.data.taskStatus==='concluido';
-        const urg = (!it._semHora && !concluido) ? timeUrgencyMeta(it.data.date, it._time) : null;
-        return `<div class="day-row${it._semHora?' day-row-nohour':''}">
-          <div class="day-hour"${urg?` style="color:${urg.color};"`:''}${it._horaInferida?' title="Horário lido do texto da tarefa — preencha o campo Horário para fixar outro."':''}>${it._semHora?'sem<br>hora':escapeHtml(it._time)}</div>
-          <div class="day-row-body">${corpo}</div>
-        </div>`;
-      }).join('')}
-    </div>` : `
-    <div class="empty-state">${icon('calendar',40)}<h3>Nada agendado para este dia</h3><p>${isMaster? 'Use os botões acima para cadastrar um compromisso ou tarefa.' : 'Use os botões acima para cadastrar algo seu.'}</p></div>`}
+      ${dailyRowsHtml(items, isMaster)}
+    </div>
   `;
 }
 
@@ -3455,9 +3496,9 @@ function checklistTemplate(){
     </div>
     <div class="hint-text" style="margin:-8px 0 16px;">Dica: pra marcar mais de um responsável com checkbox, adicione a tarefa e depois clique em ${icon('edit',11)} Editar.</div>
 
-    ${pendentes.length ? `<div class="checklist-section-label">Pendentes</div><div class="checklist-list">${pendentes.map(i=>checklistItemTemplate(i)).join('')}</div>` : ''}
-    ${andamento.length ? `<div class="checklist-section-label">Em andamento</div><div class="checklist-list">${andamento.map(i=>checklistItemTemplate(i)).join('')}</div>` : ''}
-    ${concluidos.length ? `<div class="checklist-section-label">Concluídos</div><div class="checklist-list">${concluidos.map(i=>checklistItemTemplate(i)).join('')}</div>` : ''}
+    ${pendentes.length ? `<div class="checklist-section-label cl-sec-pendentes">${icon('clock',14)} Pendentes<span class="count">${pendentes.length}</span></div><div class="checklist-list">${pendentes.map(i=>checklistItemTemplate(i)).join('')}</div>` : ''}
+    ${andamento.length ? `<div class="checklist-section-label cl-sec-andamento">${icon('chevronRight',14)} Em andamento<span class="count">${andamento.length}</span></div><div class="checklist-list">${andamento.map(i=>checklistItemTemplate(i)).join('')}</div>` : ''}
+    ${concluidos.length ? `<div class="checklist-section-label cl-sec-concluidos">${icon('check',14)} Concluídos<span class="count">${concluidos.length}</span></div><div class="checklist-list">${concluidos.map(i=>checklistItemTemplate(i)).join('')}</div>` : ''}
 
     ${!pendentes.length && !andamento.length && !concluidos.length ? `
     <div class="empty-state">${icon('check',40)}<h3>Nenhum item no checklist</h3><p>Use o campo acima para adicionar a primeira pendência.</p></div>` : ''}
