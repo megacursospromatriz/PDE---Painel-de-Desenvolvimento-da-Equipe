@@ -3519,7 +3519,7 @@ function checklistTemplate(){
         ${isMaster ? `
         <select id="clFilterUser" style="padding:8px 12px;border:1.5px solid var(--line);border-radius:9px;font-size:14px;font-weight:600;">
           <option value="todos" ${(!state.checklistFilterUser||state.checklistFilterUser==='todos')?'selected':''}>Todos os colaboradores</option>
-          <option value="${u.id}" ${state.checklistFilterUser===u.id?'selected':''}>Só os meus</option>
+          <option value="${u.id}" ${state.checklistFilterUser===u.id?'selected':''}>${escapeHtml(u.name)} (você)</option>
           <option value="criadas_por_mim" ${state.checklistFilterUser==='criadas_por_mim'?'selected':''}>Criadas por mim</option>
           ${state.users.filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}" ${state.checklistFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
         </select>` : ''}
