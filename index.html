@@ -637,6 +637,35 @@
   .mstat span{font-size:10.6px;color:var(--text-400);text-transform:uppercase;letter-spacing:.04em;}
   .member-card .btn{width:100%;margin-top:14px;}
 
+  /* -------- tarefas atribuídas da equipe -------- */
+  .asg-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:4px;}
+  .asg-kpi{background:#fff;border:1.5px solid var(--line);border-radius:13px;padding:14px 16px;box-shadow:var(--shadow-card);}
+  .asg-kpi b{display:block;font-family:Arial,Helvetica,sans-serif;font-size:25px;line-height:1.1;}
+  .asg-kpi span{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-400);font-weight:700;}
+  .asg-person{background:#fff;border:1.5px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);margin-bottom:16px;overflow:hidden;}
+  .asg-person-head{display:flex;align-items:center;gap:11px;padding:13px 16px;border-bottom:1.5px solid var(--line);background:var(--paper);}
+  .asg-person-head .avatar{width:36px;height:36px;border-radius:10px;font-size:14px;flex-shrink:0;}
+  .asg-person-name{font-weight:700;font-size:16.2px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .asg-person-counts{display:flex;gap:6px;flex-wrap:wrap;}
+  .asg-count{font-size:11.8px;font-weight:700;padding:3px 9px;border-radius:100px;white-space:nowrap;}
+  .asg-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line-soft);}
+  .asg-row:last-child{border-bottom:none;}
+  .asg-row:hover{background:var(--paper);}
+  .asg-row.late{background:#fff6f6;}
+  .asg-origem{font-size:11px;font-weight:700;padding:4px 9px;border-radius:7px;flex-shrink:0;min-width:106px;text-align:center;letter-spacing:.02em;}
+  .asg-main{flex:1;min-width:0;cursor:pointer;}
+  .asg-title{font-weight:600;font-size:15.1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .asg-meta{font-size:12.6px;color:var(--text-400);margin-top:3px;display:flex;gap:11px;flex-wrap:wrap;align-items:center;}
+  .asg-meta svg{vertical-align:-1px;}
+  .asg-late-tag{color:#c73838;font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+  .asg-status{font-size:11.8px;font-weight:700;padding:4px 11px;border-radius:100px;flex-shrink:0;white-space:nowrap;}
+  .asg-actions{display:flex;gap:6px;flex-shrink:0;}
+  @media (max-width:760px){
+    .asg-row{flex-wrap:wrap;}
+    .asg-origem{min-width:0;}
+    .asg-main{flex-basis:100%;order:3;}
+  }
+
   /* -------- team table -------- */
   .table-wrap{background:#fff;border-radius:14px;border:1.5px solid var(--line);overflow:hidden;box-shadow:var(--shadow-card);}
   table{width:100%;border-collapse:collapse;font-size:15.1px;}
@@ -938,6 +967,7 @@ const ALL_TABS = [
   {key:'monthcal', label:'Agenda Mensal'},
   {key:'daily', label:'Agenda do Dia'},
   {key:'checklist', label:'Checklist'},
+  {key:'assigned', label:'Tarefas Atribuídas'},
   {key:'w2h', label:'5W2H'},
   {key:'repasse', label:'Repasse'},
   {key:'notices', label:'Avisos'},
@@ -949,7 +979,7 @@ const ALL_TABS = [
   {key:'overview', label:'Visão Geral'},
   {key:'team', label:'Equipe'},
 ];
-const DEFAULT_TABS_USER = ['agenda','monthcal','daily','checklist','w2h','notices','chat','repasse'];
+const DEFAULT_TABS_USER = ['agenda','monthcal','daily','checklist','assigned','w2h','notices','chat','repasse'];
 // "Agenda Usuário" fica de fora do padrão — o super-admin decide, master a
 // master, quem pode gerenciar a agenda dos usuários (ver openUserModal).
 const RESTRICTED_BY_DEFAULT_TABS = ['user_agenda','financeiro','repasse'];
@@ -1068,6 +1098,10 @@ const state = {
   checklistItems:[],
   checklistSearch:'',
   checklistFilterUser:'todos',
+  assignedFilterUser:'todos',
+  assignedOrigem:'todas',
+  assignedSituacao:'aberto',
+  assignedSearch:'',
   notifications:[],
   w2hEntries:[],
   w2hFilter:{collaborator:'todos', state:'todos', city:'', month: new Date().getMonth()+1, year: new Date().getFullYear()},
@@ -1259,6 +1293,9 @@ async function loadData(){
         // "Repasse" é liberado por padrão para colaboradores (eles usam pra
         // enviar nota fiscal); masters continuam precisando de liberação manual.
         if(u.role!=='master' && !u.tabs.includes('repasse')){ u.tabs.push('repasse'); migrated = true; }
+        // "Tarefas Atribuídas" serve pra todo mundo: o colaborador vê o que é
+        // dele, o master vê o da equipe inteira.
+        if(!u.tabs.includes('assigned')){ u.tabs.push('assigned'); migrated = true; }
       }
       if(u.canViewOthersAgenda===undefined){ u.canViewOthersAgenda = false; migrated = true; }
       if(u.agendaHiddenFromOthers===undefined){ u.agendaHiddenFromOthers = (u.role==='master'); migrated = true; }
@@ -1889,6 +1926,7 @@ function attachLoginEvents(){
     // seletor lá só lista colaboradores, então um master não existe como opção.
     state.dailyUserFilter = u.id;
     state.checklistFilterUser = u.id;
+    state.assignedFilterUser = u.id;
     state.historyFilterUser = u.id;
     state.repasseFilterUser = (u.role==='user' ? u.id : 'todos');
     state.view = 'agenda';
@@ -1913,11 +1951,13 @@ function shellTemplate(){
   const myUnreadW2H = notificationsForCurrentUser().filter(n=>!n.read && n.type==='w2h').length;
   const myUnreadRepasse = notificationsForCurrentUser().filter(n=>!n.read && n.type==='repasse').length;
   const myUnreadChats = state.users.filter(x=>x.id!==u.id).reduce((sum,x)=>sum+unreadCountFrom(x.id),0);
+  const myAssignedOpen = assignedMyOpenCount();
   const allNavItems = [
     {key:'agenda', label:'Compromissos', icon:'clipboard', badge:myInvites.length},
     {key:'monthcal', label:'Agenda Mensal', icon:'calendarGrid'},
     {key:'daily', label:'Agenda do Dia', icon:'calendar', badge: u.role!=='master' ? myOpenDaily : 0},
     {key:'checklist', label:'Checklist', icon:'check'},
+    {key:'assigned', label:'Tarefas Atribuídas', icon:'eye', badge: myAssignedOpen},
     {key:'w2h', label:'5W2H', icon:'clipboard', badge: myUnreadW2H},
     {key:'repasse', label:'Repasse', icon:'financeiro', badge: myUnreadRepasse},
     {key:'notices', label:'Avisos', icon:'bell', badge: myUnreadNotices},
@@ -1931,7 +1971,7 @@ function shellTemplate(){
   ];
   const myTabs = userTabs(u);
   const navItems = allNavItems.filter(n=>myTabs.includes(n.key));
-  const titles = {agenda:'Compromissos', monthcal:'Agenda Mensal', daily:'Agenda do Dia', checklist:'Checklist', w2h:'5W2H', repasse:'Repasse', notices:'Avisos', chat:'Chat', user_agenda:'Agenda Usuário', history:'Histórico', financeiro:'Financeiro', implantacao:'Protocolo de Implantação', overview:'Visão Geral do Grupo', team:'Gerenciar Equipe'};
+  const titles = {agenda:'Compromissos', monthcal:'Agenda Mensal', daily:'Agenda do Dia', checklist:'Checklist', assigned:'Tarefas Atribuídas da Equipe', w2h:'5W2H', repasse:'Repasse', notices:'Avisos', chat:'Chat', user_agenda:'Agenda Usuário', history:'Histórico', financeiro:'Financeiro', implantacao:'Protocolo de Implantação', overview:'Visão Geral do Grupo', team:'Gerenciar Equipe'};
   const subs = {
     agenda:'Suas tarefas, reuniões e compromissos.',
     monthcal:'Visão do mês inteiro — clique em um dia para ver ou cadastrar compromissos.',
@@ -1942,6 +1982,7 @@ function shellTemplate(){
     implantacao:'Unidades em implantação — itens, responsáveis, etapas e fotos.',
     repasse:'Valores de repasse, nota fiscal e dados bancários.',
     checklist:'Lista rápida de pendências por colaborador.',
+    assigned: u.role==='master' ? 'Tudo que foi atribuído a cada pessoa da equipe, em um só lugar.' : 'Tudo que foi atribuído a você — e o que você atribuiu a alguém.',
     w2h:'Plano de ação mensal — preencha todo dia 25.',
     notices:'Todos os avisos e lembretes em um só lugar.',
     chat:'Converse em tempo real com a equipe.',
@@ -1986,7 +2027,7 @@ function shellTemplate(){
         </div>
       </header>
       <div class="content" id="viewContent">
-        ${state.view==='agenda' ? agendaTemplate() : state.view==='monthcal' ? monthCalTemplate() : state.view==='daily' ? dailyTemplate() : state.view==='checklist' ? checklistTemplate() : state.view==='w2h' ? w2hTemplate() : state.view==='repasse' ? repasseTemplate() : state.view==='notices' ? noticesTemplate() : state.view==='chat' ? chatTemplate() : state.view==='user_agenda' ? userAgendaTemplate() : state.view==='history' ? historyTemplate() : state.view==='financeiro' ? financeiroTemplate() : state.view==='implantacao' ? implantacaoTemplate() : state.view==='overview' ? overviewTemplate() : teamTemplate()}
+        ${state.view==='agenda' ? agendaTemplate() : state.view==='monthcal' ? monthCalTemplate() : state.view==='daily' ? dailyTemplate() : state.view==='checklist' ? checklistTemplate() : state.view==='assigned' ? assignedTemplate() : state.view==='w2h' ? w2hTemplate() : state.view==='repasse' ? repasseTemplate() : state.view==='notices' ? noticesTemplate() : state.view==='chat' ? chatTemplate() : state.view==='user_agenda' ? userAgendaTemplate() : state.view==='history' ? historyTemplate() : state.view==='financeiro' ? financeiroTemplate() : state.view==='implantacao' ? implantacaoTemplate() : state.view==='overview' ? overviewTemplate() : teamTemplate()}
       </div>
     </main>
   </div>`;
@@ -2010,6 +2051,7 @@ function attachShellEvents(){
   if(state.view==='monthcal') attachMonthCalEvents();
   if(state.view==='daily') attachDailyEvents();
   if(state.view==='checklist') attachChecklistEvents();
+  if(state.view==='assigned') attachAssignedEvents();
   if(state.view==='w2h') attachW2HEvents();
   if(state.view==='notices') attachNoticesEvents();
   if(state.view==='chat') attachChatEvents();
@@ -3795,6 +3837,295 @@ function attachChecklistEvents(){
         toast('Item excluído.');
         render();
       });
+    });
+  });
+}
+
+/* ================= TAREFAS ATRIBUÍDAS DA EQUIPE ================= */
+// Junta num só lugar tudo que foi ATRIBUÍDO a alguém:
+//  - Agenda do Dia: toda tarefa do dia tem um colaborador (assignedTo);
+//  - Checklist: só os itens com responsável apontado — sem responsável não é
+//    atribuição, é anotação de quem criou;
+//  - Compromissos: só os delegados, ou seja, quando quem criou não é o dono da
+//    agenda ("Este compromisso é para mim" desmarcado).
+const ASSIGNED_ORIGINS = [
+  {key:'daily', label:'Agenda do Dia', color:'#2148c9', bg:'#e8edfb'},
+  {key:'checklist', label:'Checklist', color:'#a16207', bg:'#fef3c7'},
+  {key:'agenda', label:'Compromisso', color:'#7048c9', bg:'#efe8fb'},
+];
+function assignedOriginMeta(key){ return ASSIGNED_ORIGINS.find(o=>o.key===key) || ASSIGNED_ORIGINS[0]; }
+const ASSIGNED_SITUACOES = [
+  {key:'aberto', label:'Em aberto'},
+  {key:'atrasadas', label:'Atrasadas'},
+  {key:'encerradas', label:'Encerradas'},
+  {key:'todas', label:'Todas'},
+];
+// índice key -> linha, montado a cada render; os cliques resolvem por aqui
+let ASSIGNED_INDEX = {};
+function asgNorm(s){ return (s||'').toString().normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); }
+
+function assignedAllRows(){
+  const rows = [];
+  const hoje = todayStr();
+  state.dailyTasks.forEach(dt=>{
+    const meta = dailyStatusMeta(dt.status);
+    const aberto = dt.status==='andamento' || dt.status==='adiado';
+    rows.push({
+      key:'daily|'+dt.id, origem:'daily', refId:dt.id,
+      titulo: dt.title || '(sem título)',
+      pessoaId: dt.assignedTo || '',
+      pessoaNome: (userById(dt.assignedTo)||{}).name || dt.assignedToName || 'Sem responsável',
+      porId: dt.createdBy || '',
+      porNome: (userById(dt.createdBy)||{}).name || dt.createdByName || '',
+      data: dt.date || '', hora: dt.time || '',
+      statusLabel: meta.label, statusColor: meta.color, statusBg: meta.bg,
+      aberto, atrasado: aberto && !!dt.date && dt.date < hoje,
+      company:'', ordem: dt.createdAt || 0,
+    });
+  });
+  state.checklistItems.forEach(it=>{
+    const resp = (it.responsavel||'').trim();
+    if(!resp) return;
+    const meta = checklistStatusMeta(it.status);
+    const aberto = it.status!=='concluido';
+    // um item pode apontar mais de um responsável — gera uma linha por pessoa
+    const casados = state.users.filter(x=>checklistPertenceA(it, x));
+    const destinos = casados.length ? casados.map(x=>({id:x.id, name:x.name})) : [{id:'', name:resp}];
+    destinos.forEach(d=>{
+      rows.push({
+        key:'checklist|'+it.id+'|'+(d.id||'txt'), origem:'checklist', refId:it.id,
+        titulo: it.text || '(sem título)',
+        pessoaId: d.id, pessoaNome: d.name,
+        porId: it.createdBy || '', porNome: (userById(it.createdBy)||{}).name || '',
+        data:'', hora:'',
+        statusLabel: meta.label, statusColor: meta.color, statusBg: meta.bg,
+        aberto, atrasado:false,
+        company: it.company || '', ordem: it.createdAt || 0,
+      });
+    });
+  });
+  state.tasks.forEach(t=>{
+    const criadorId = (t.history && t.history[0] && t.history[0].byId) || '';
+    if(!criadorId || criadorId===t.ownerId) return;
+    const meta = statusMeta(t.taskStatus);
+    const aberto = t.taskStatus==='pendente' || t.taskStatus==='adiada';
+    rows.push({
+      key:'agenda|'+t.id, origem:'agenda', refId:t.id,
+      titulo: t.title || '(sem título)',
+      pessoaId: t.ownerId || '',
+      pessoaNome: (userById(t.ownerId)||{}).name || t.ownerName || 'Sem responsável',
+      porId: criadorId, porNome: (userById(criadorId)||{}).name || (t.history[0].byName||''),
+      data: t.date || '', hora: t.time || '',
+      statusLabel: meta.label, statusColor: meta.color, statusBg: meta.bg,
+      aberto, atrasado: aberto && !!t.date && t.date < hoje,
+      company: t.company || '', ordem: t.createdAt || 0,
+    });
+  });
+  return rows;
+}
+
+function assignedFilteredRows(aplicarSituacao){
+  const u = state.currentUser;
+  const isMaster = u.role==='master';
+  let rows = assignedAllRows();
+  if(!isMaster){
+    // colaborador vê o que é dele e o que ele mesmo atribuiu a alguém
+    rows = rows.filter(r=>r.pessoaId===u.id || r.porId===u.id);
+  } else {
+    const f = state.assignedFilterUser;
+    if(f==='por_mim') rows = rows.filter(r=>r.porId===u.id);
+    else if(f && f!=='todos') rows = rows.filter(r=>r.pessoaId===f);
+  }
+  if(state.assignedOrigem && state.assignedOrigem!=='todas'){
+    rows = rows.filter(r=>r.origem===state.assignedOrigem);
+  }
+  const q = asgNorm(state.assignedSearch).trim();
+  if(q) rows = rows.filter(r=> asgNorm(r.titulo+' '+r.pessoaNome+' '+r.porNome).includes(q));
+  if(aplicarSituacao){
+    const s = state.assignedSituacao;
+    if(s==='aberto') rows = rows.filter(r=>r.aberto);
+    else if(s==='atrasadas') rows = rows.filter(r=>r.atrasado);
+    else if(s==='encerradas') rows = rows.filter(r=>!r.aberto);
+  }
+  return rows;
+}
+
+function assignedMyOpenCount(){
+  const u = state.currentUser;
+  if(!u) return 0;
+  return assignedAllRows().filter(r=>r.pessoaId===u.id && r.aberto).length;
+}
+
+// atrasadas primeiro, depois o que está em aberto por prazo, e por último o que
+// já foi encerrado (mais recente em cima)
+function assignedRowOrder(a,b){
+  const rank = r => r.atrasado ? 0 : (r.aberto ? 1 : 2);
+  const ra = rank(a), rb = rank(b);
+  if(ra!==rb) return ra-rb;
+  if(ra===2) return (b.data||'').localeCompare(a.data||'') || (b.ordem-a.ordem);
+  return (a.data||'9999-99-99').localeCompare(b.data||'9999-99-99') || (a.ordem-b.ordem);
+}
+
+function assignedTemplate(){
+  const u = state.currentUser;
+  const isMaster = u.role==='master';
+  const base = assignedFilteredRows(false);
+  const rows = assignedFilteredRows(true);
+  ASSIGNED_INDEX = {};
+  rows.forEach(r=>{ ASSIGNED_INDEX[r.key] = r; });
+  const kAbertas = base.filter(r=>r.aberto).length;
+  const kAtrasadas = base.filter(r=>r.atrasado).length;
+  const kEncerradas = base.filter(r=>!r.aberto).length;
+  const kSemPrazo = base.filter(r=>r.aberto && !r.data).length;
+
+  const grupos = [];
+  const mapa = {};
+  rows.forEach(r=>{
+    const gk = r.pessoaId || ('txt:'+asgNorm(r.pessoaNome));
+    if(!mapa[gk]){ mapa[gk] = {key:gk, pessoaId:r.pessoaId, nome:r.pessoaNome, itens:[]}; grupos.push(mapa[gk]); }
+    mapa[gk].itens.push(r);
+  });
+  grupos.sort((a,b)=>{
+    if(a.pessoaId===u.id) return -1;
+    if(b.pessoaId===u.id) return 1;
+    return a.nome.localeCompare(b.nome,'pt-BR');
+  });
+  grupos.forEach(g=>g.itens.sort(assignedRowOrder));
+
+  const inputStyle = 'padding:8px 12px;border:1.5px solid var(--line);border-radius:9px;font-size:14.6px;';
+  return `
+    <div class="asg-kpis">
+      <div class="asg-kpi"><b style="color:#2148c9;">${kAbertas}</b><span>Em aberto</span></div>
+      <div class="asg-kpi"><b style="color:#c73838;">${kAtrasadas}</b><span>Atrasadas</span></div>
+      <div class="asg-kpi"><b style="color:#1f8f5f;">${kEncerradas}</b><span>Encerradas</span></div>
+      <div class="asg-kpi"><b style="color:#a16207;">${kSemPrazo}</b><span>Em aberto sem prazo</span></div>
+    </div>
+    <div class="toolbar" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <input type="text" id="asgSearchInput" placeholder="Buscar tarefa ou pessoa..." value="${escapeHtml(state.assignedSearch||'')}" style="${inputStyle}width:230px;">
+        ${isMaster ? `
+        <select id="asgUserFilter" style="${inputStyle}font-weight:600;">
+          <option value="todos" ${state.assignedFilterUser==='todos'?'selected':''}>Todos os colaboradores</option>
+          <option value="${u.id}" ${state.assignedFilterUser===u.id?'selected':''}>${escapeHtml(u.name)} (você)</option>
+          <option value="por_mim" ${state.assignedFilterUser==='por_mim'?'selected':''}>Atribuídas por mim</option>
+          ${state.users.filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}" ${state.assignedFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
+        </select>` : ''}
+        <span class="mono" style="font-size:12.3px;color:var(--text-400);">${rows.length} tarefa(s) · ${grupos.length} pessoa(s)</span>
+      </div>
+      ${isMaster ? `<div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="asgNewBtn">${icon('plus',16)} Atribuir tarefa</button>
+      </div>` : ''}
+    </div>
+    <div class="chip-row" style="margin-bottom:10px;">
+      ${ASSIGNED_SITUACOES.map(s=>`<button class="chip ${state.assignedSituacao===s.key?'active':''}" data-asg-situacao="${s.key}">${s.label}</button>`).join('')}
+    </div>
+    <div class="chip-row" style="margin-bottom:18px;">
+      <button class="chip ${(!state.assignedOrigem||state.assignedOrigem==='todas')?'active':''}" data-asg-origem="todas">Todas as origens</button>
+      ${ASSIGNED_ORIGINS.map(o=>`<button class="chip ${state.assignedOrigem===o.key?'active':''}" data-asg-origem="${o.key}"><span class="dot" style="background:${o.color}"></span>${o.label}</button>`).join('')}
+    </div>
+    ${grupos.length ? grupos.map(g=>assignedGroupTemplate(g)).join('') : `
+    <div class="empty-state">${icon('eye',40)}<h3>Nada atribuído com esses filtros</h3><p>Troque a situação, a origem ou o colaborador acima.</p></div>`}
+    <div class="hint-text" style="margin-top:14px;">Esta aba reúne as tarefas da <b>Agenda do Dia</b>, os itens de <b>Checklist</b> que têm responsável apontado e os <b>compromissos delegados</b> (criados por uma pessoa na agenda de outra).</div>
+  `;
+}
+
+function assignedGroupTemplate(g){
+  const u = state.currentUser;
+  const pessoa = g.pessoaId ? userById(g.pessoaId) : null;
+  const abertas = g.itens.filter(r=>r.aberto).length;
+  const atrasadas = g.itens.filter(r=>r.atrasado).length;
+  const encerradas = g.itens.filter(r=>!r.aberto).length;
+  return `
+  <div class="asg-person">
+    <div class="asg-person-head">
+      <div class="avatar">${pessoa ? avatarInner(pessoa) : icon('users',16)}</div>
+      <div class="asg-person-name">${escapeHtml(g.nome)}${g.pessoaId===u.id?' (você)':''}${!g.pessoaId?' · nome fora da equipe':''}</div>
+      <div class="asg-person-counts">
+        ${atrasadas?`<span class="asg-count" style="background:#fbe7e7;color:#b91c1c;">${atrasadas} atrasada(s)</span>`:''}
+        <span class="asg-count" style="background:#e8edfb;color:#2148c9;">${abertas} em aberto</span>
+        ${encerradas?`<span class="asg-count" style="background:#e4f7ee;color:#157a4a;">${encerradas} encerrada(s)</span>`:''}
+      </div>
+    </div>
+    ${g.itens.map(r=>assignedRowTemplate(r)).join('')}
+  </div>`;
+}
+
+function assignedRowTemplate(r){
+  const u = state.currentUser;
+  const om = assignedOriginMeta(r.origem);
+  const podeAgir = u.role==='master' || r.pessoaId===u.id || r.porId===u.id;
+  const quando = r.data ? (formatDateBR(r.data) + (r.hora?' às '+r.hora:'')) : 'sem prazo';
+  return `
+  <div class="asg-row ${r.atrasado?'late':''}">
+    <span class="asg-origem" style="background:${om.bg};color:${om.color};">${om.label}</span>
+    <div class="asg-main" data-asg-open="${r.key}" title="Abrir tarefa">
+      <div class="asg-title">${escapeHtml(r.titulo)}</div>
+      <div class="asg-meta">
+        <span>${icon('calendar',11)} ${quando}</span>
+        ${r.atrasado?`<span class="asg-late-tag">atrasada</span>`:''}
+        ${r.porNome?`<span>atribuída por ${escapeHtml(r.porNome)}</span>`:''}
+        ${r.company?`<span>${escapeHtml(companyMeta(r.company).label)}</span>`:''}
+      </div>
+    </div>
+    <span class="asg-status" style="background:${r.statusBg};color:${r.statusColor};">${r.statusLabel}</span>
+    <div class="asg-actions">
+      ${(r.aberto && podeAgir && r.origem!=='agenda') ? `<button class="btn btn-icon" data-asg-done="${r.key}" title="Marcar como concluída">${icon('check',13)}</button>` : ''}
+      <button class="btn btn-icon" data-asg-open="${r.key}" title="Abrir tarefa">${icon('chevronRight',13)}</button>
+    </div>
+  </div>`;
+}
+
+function attachAssignedEvents(){
+  const search = document.getElementById('asgSearchInput');
+  if(search) search.addEventListener('input', ()=>{
+    state.assignedSearch = search.value;
+    const pos = search.selectionStart;
+    render();
+    const fresh = document.getElementById('asgSearchInput');
+    if(fresh){ fresh.focus(); fresh.setSelectionRange(pos, pos); }
+  });
+  const sel = document.getElementById('asgUserFilter');
+  if(sel) sel.addEventListener('change', ()=>{ state.assignedFilterUser = sel.value; render(); });
+  document.querySelectorAll('[data-asg-situacao]').forEach(b=>{
+    b.addEventListener('click', ()=>{ state.assignedSituacao = b.dataset.asgSituacao; render(); });
+  });
+  document.querySelectorAll('[data-asg-origem]').forEach(b=>{
+    b.addEventListener('click', ()=>{ state.assignedOrigem = b.dataset.asgOrigem; render(); });
+  });
+  const newBtn = document.getElementById('asgNewBtn');
+  if(newBtn) newBtn.addEventListener('click', ()=>openDailyTaskModal());
+  document.querySelectorAll('[data-asg-open]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const r = ASSIGNED_INDEX[el.dataset.asgOpen];
+      if(!r) return;
+      if(r.origem==='daily'){
+        const dt = state.dailyTasks.find(x=>x.id===r.refId);
+        if(dt) openDailyTaskModal(dt);
+      } else if(r.origem==='checklist'){
+        const it = state.checklistItems.find(x=>x.id===r.refId);
+        if(it) openChecklistItemModal(it);
+      } else {
+        const t = state.tasks.find(x=>x.id===r.refId);
+        if(t) openTaskDetailModal(t);
+      }
+    });
+  });
+  document.querySelectorAll('[data-asg-done]').forEach(b=>{
+    b.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const r = ASSIGNED_INDEX[b.dataset.asgDone];
+      if(!r) return;
+      if(r.origem==='daily'){
+        const dt = state.dailyTasks.find(x=>x.id===r.refId);
+        if(dt) openDailyStatusChangeModal(dt, 'concluido', false);
+      } else if(r.origem==='checklist'){
+        const it = state.checklistItems.find(x=>x.id===r.refId);
+        if(!it) return;
+        it.status = 'concluido';
+        await saveChecklist();
+        toast('Item do checklist concluído.');
+        render();
+      }
     });
   });
 }
