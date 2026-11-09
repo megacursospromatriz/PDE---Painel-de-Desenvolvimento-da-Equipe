@@ -3444,9 +3444,27 @@ function checklistTemplate(){
   let items = isMaster ? state.checklistItems.slice() : state.checklistItems.filter(i=>i.createdBy===u.id);
   if(state.companyFilter!=='todas') items = items.filter(i=>i.company===state.companyFilter);
   if(isMaster && state.checklistFilterUser && state.checklistFilterUser!=='todos'){
-    const targetUser = userById(state.checklistFilterUser);
-    const targetName = (targetUser?.name || '').toLowerCase();
-    items = items.filter(i=> i.createdBy===state.checklistFilterUser || (i.responsavel||'').toLowerCase().includes(targetName));
+    // se o registro não estiver na lista, cai no próprio usuário da sessão —
+    // "Só os meus" não pode ficar sem referência de nome
+    const targetUser = userById(state.checklistFilterUser)
+      || (state.checklistFilterUser===u.id ? u : null);
+
+    // O nome vazio era o furo do filtro: ''.includes('') é sempre true, então
+    // "Só os meus" deixava passar a lista inteira quando o usuário não era
+    // encontrado em state.users ou estava sem nome cadastrado.
+    const targetName = (targetUser && targetUser.name || '').trim().toLowerCase();
+    const primeiroNome = targetName.split(/\s+/)[0] || '';
+    const ehResponsavel = (texto)=>{
+      const resp = (texto||'').trim().toLowerCase();
+      if(!resp || !targetName) return false;
+      if(resp.includes(targetName)) return true;
+      // "Luciano, Ana" / "Luciano e Ana" / "Luciano; Ana" — compara nome a nome,
+      // pra achar também quem foi anotado só pelo primeiro nome
+      if(primeiroNome.length < 3) return false;
+      return resp.split(/[,;/|&+]|\se\s/).map(p=>p.trim()).filter(Boolean)
+        .some(p => p===primeiroNome || p.startsWith(primeiroNome+' '));
+    };
+    items = items.filter(i=> i.createdBy===state.checklistFilterUser || ehResponsavel(i.responsavel));
   }
   if(state.checklistSearch && state.checklistSearch.trim()){
     const q = state.checklistSearch.trim().toLowerCase();
