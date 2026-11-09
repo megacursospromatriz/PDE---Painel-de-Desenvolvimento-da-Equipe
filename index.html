@@ -995,10 +995,12 @@ const DAILY_STATUS_LIST = [
  {key:'adiado', label:'Adiado', color:'#7048c9', bg:'#efe8fb'},
 ];
 
+// As cores aqui são as mesmas das faixas de seção do Checklist (vermelho,
+// amarelo, verde) — etiqueta do card e faixa do bloco precisam combinar.
 const CHECKLIST_STATUS = [
-  {key:'pendente', label:'Pendente', color:'#c9821f', bg:'#fdf1de'},
-  {key:'andamento', label:'Em Andamento', color:'#2148c9', bg:'#e8edfb'},
-  {key:'concluido', label:'Concluído', color:'#1f8f5f', bg:'#e4f7ee'},
+  {key:'pendente', label:'Pendente', color:'#b91c1c', bg:'#fbe7e7'},
+  {key:'andamento', label:'Em Andamento', color:'#a16207', bg:'#fef3c7'},
+  {key:'concluido', label:'Concluído', color:'#157a4a', bg:'#e4f7ee'},
 ];
 function checklistStatusMeta(key){ return CHECKLIST_STATUS.find(s=>s.key===key) || CHECKLIST_STATUS[0]; }
 const CHECKLIST_PRIORITY = [
