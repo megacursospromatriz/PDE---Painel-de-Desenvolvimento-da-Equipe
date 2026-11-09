@@ -3471,7 +3471,11 @@ function checklistTemplate(){
   const isMaster = u.role==='master';
   let items = isMaster ? state.checklistItems.slice() : state.checklistItems.filter(i=>checklistPertenceA(i, u));
   if(state.companyFilter!=='todas') items = items.filter(i=>i.company===state.companyFilter);
-  if(isMaster && state.checklistFilterUser && state.checklistFilterUser!=='todos'){
+  if(isMaster && state.checklistFilterUser==='criadas_por_mim'){
+    // o que eu abri — inclusive o que deleguei e por isso saiu da minha lista
+    // pela regra do responsável
+    items = items.filter(i=>i.createdBy===u.id);
+  } else if(isMaster && state.checklistFilterUser && state.checklistFilterUser!=='todos'){
     // se o registro não estiver na lista de usuários, cai no próprio usuário
     // da sessão — "Só os meus" não pode ficar sem referência de nome
     const alvo = userById(state.checklistFilterUser)
@@ -3502,6 +3506,7 @@ function checklistTemplate(){
         <select id="clFilterUser" style="padding:8px 12px;border:1.5px solid var(--line);border-radius:9px;font-size:12.5px;font-weight:600;">
           <option value="todos" ${(!state.checklistFilterUser||state.checklistFilterUser==='todos')?'selected':''}>Todos os colaboradores</option>
           <option value="${u.id}" ${state.checklistFilterUser===u.id?'selected':''}>Só os meus</option>
+          <option value="criadas_por_mim" ${state.checklistFilterUser==='criadas_por_mim'?'selected':''}>Criadas por mim</option>
           ${state.users.filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}" ${state.checklistFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
         </select>` : ''}
       </div>
