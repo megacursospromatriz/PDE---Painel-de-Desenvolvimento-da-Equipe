@@ -4900,7 +4900,10 @@ function subscriptionsSummary(allSubs, dateFilter){
     },
   };
 }
-function subscriptionsFiltered(){
+// quickOverride permite contar quantas assinaturas cairiam em cada filtro rápido
+// sem mexer no filtro ativo — é o que alimenta os números das abas.
+function subscriptionsFiltered(quickOverride){
+  const quick = (quickOverride===undefined) ? state.subQuickFilter : quickOverride;
   let list = state.subscriptions.slice();
   const f = state.subFilter;
   if(f.company!=='todas') list = list.filter(s=>s.grupo===f.company);
@@ -4919,7 +4922,7 @@ function subscriptionsFiltered(){
     const q = f.search.trim().toLowerCase();
     list = list.filter(s=> (s.ferramenta||'').toLowerCase().includes(q) || (s.plano||'').toLowerCase().includes(q) || (s.observacoes||'').toLowerCase().includes(q) || (s.responsavel||'').toLowerCase().includes(q));
   }
-  if(state.subQuickFilter==='mes_atual'){
+  if(quick==='mes_atual'){
     const curMonthPrefix = todayStr().slice(0,7);
     list = list.filter(s=>{
       if(!s.dataVencimento) return false;
@@ -4927,15 +4930,15 @@ function subscriptionsFiltered(){
       return subEffectiveStatus(s)==='vencida'; // ou atrasada de mês(es) anterior(es) e ainda não paga
     });
   }
-  if(state.subQuickFilter==='ativas') list = list.filter(s=>!['cancelada','pausada'].includes(subEffectiveStatus(s)));
-  if(state.subQuickFilter==='vencidas') list = list.filter(s=>subEffectiveStatus(s)==='vencida');
-  if(state.subQuickFilter==='pagas') list = list.filter(s=>{
+  if(quick==='ativas') list = list.filter(s=>!['cancelada','pausada'].includes(subEffectiveStatus(s)));
+  if(quick==='vencidas') list = list.filter(s=>subEffectiveStatus(s)==='vencida');
+  if(quick==='pagas') list = list.filter(s=>{
     if(!Array.isArray(s.historicoPagamentos) || !s.historicoPagamentos.length) return false;
     if(!f.dataInicio && !f.dataFim) return true;
     return s.historicoPagamentos.some(p=> (!f.dataInicio || p.data>=f.dataInicio) && (!f.dataFim || p.data<=f.dataFim));
   });
-  if(state.subQuickFilter==='canceladas') list = list.filter(s=>subEffectiveStatus(s)==='cancelada');
-  if(state.subQuickFilter==='proximas') list = list.filter(s=>{ const d=subDaysUntilRenewal(s); return d!==null && d>=0 && d<=30; });
+  if(quick==='canceladas') list = list.filter(s=>subEffectiveStatus(s)==='cancelada');
+  if(quick==='proximas') list = list.filter(s=>{ const d=subDaysUntilRenewal(s); return d!==null && d>=0 && d<=30; });
   const {field, dir} = state.subSort;
   list.sort((a,b)=>{
     let av = field==='proximaRenovacao' ? (subNextRenewal(a)||'') : (a[field]!==undefined?a[field]:'');
@@ -4946,6 +4949,7 @@ function subscriptionsFiltered(){
   });
   return list;
 }
+function subQuickCount(quick){ return subscriptionsFiltered(quick).length; }
 function subscriptionsTemplate(){
   const list = subscriptionsFiltered();
   const f = state.subFilter;
@@ -5011,13 +5015,13 @@ function subscriptionsTemplate(){
     </div>
     ${state.subQuickFilter==='mes_atual' ? `<div class="hint-text" style="margin:14px 0 -2px;font-size:14.6px;font-weight:600;color:var(--blue-600);">${icon('calendarGrid',13)} Mostrando ${MONTH_NAMES_PT[new Date().getMonth()]} de ${new Date().getFullYear()} — atualiza sozinho quando o mês virar.</div>` : ''}
     <div class="chip-row" style="margin:12px 0 4px;">
-      <button class="chip ${state.subQuickFilter==='mes_atual'?'active':''}" data-sub-quick="mes_atual">${icon('calendarGrid',13)} Mês Atual</button>
-      <button class="chip ${!state.subQuickFilter?'active':''}" data-sub-quick="">Todas (${state.subscriptions.length})</button>
-      <button class="chip ${state.subQuickFilter==='ativas'?'active':''}" data-sub-quick="ativas">Ativas</button>
-      <button class="chip ${state.subQuickFilter==='vencidas'?'active':''}" data-sub-quick="vencidas">Vencidas</button>
-      <button class="chip ${state.subQuickFilter==='pagas'?'active':''}" data-sub-quick="pagas">Pagas${(f.dataInicio||f.dataFim)?' no período':''}</button>
-      <button class="chip ${state.subQuickFilter==='canceladas'?'active':''}" data-sub-quick="canceladas">Canceladas</button>
-      <button class="chip ${state.subQuickFilter==='proximas'?'active':''}" data-sub-quick="proximas">Vencendo em 30 dias</button>
+      <button class="chip ${state.subQuickFilter==='mes_atual'?'active':''}" data-sub-quick="mes_atual">${icon('calendarGrid',13)} Mês Atual (${subQuickCount('mes_atual')})</button>
+      <button class="chip ${!state.subQuickFilter?'active':''}" data-sub-quick="">Todas (${subQuickCount('')})</button>
+      <button class="chip ${state.subQuickFilter==='ativas'?'active':''}" data-sub-quick="ativas">Ativas (${subQuickCount('ativas')})</button>
+      <button class="chip ${state.subQuickFilter==='vencidas'?'active':''}" data-sub-quick="vencidas">Vencidas (${subQuickCount('vencidas')})</button>
+      <button class="chip ${state.subQuickFilter==='pagas'?'active':''}" data-sub-quick="pagas">Pagas${(f.dataInicio||f.dataFim)?' no período':''} (${subQuickCount('pagas')})</button>
+      <button class="chip ${state.subQuickFilter==='canceladas'?'active':''}" data-sub-quick="canceladas">Canceladas (${subQuickCount('canceladas')})</button>
+      <button class="chip ${state.subQuickFilter==='proximas'?'active':''}" data-sub-quick="proximas">Vencendo em 30 dias (${subQuickCount('proximas')})</button>
     </div>
 
     ${list.length ? `
