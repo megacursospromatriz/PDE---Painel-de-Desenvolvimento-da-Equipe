@@ -637,6 +637,33 @@
   .mstat span{font-size:10.6px;color:var(--text-400);text-transform:uppercase;letter-spacing:.04em;}
   .member-card .btn{width:100%;margin-top:14px;}
 
+  /* -------- busca em destaque das assinaturas -------- */
+  .sub-search-top{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin:0 0 16px;flex-wrap:wrap;}
+  .sub-search-count{font-size:13.4px;font-weight:700;color:var(--blue-600);}
+  .sub-search-box{
+    display:flex;align-items:center;gap:9px;width:380px;max-width:100%;
+    background:#fff;border:2px solid var(--line);border-radius:12px;padding:0 13px;
+    box-shadow:var(--shadow-card);transition:border-color .15s,box-shadow .15s;
+  }
+  .sub-search-box > svg{color:var(--text-400);flex-shrink:0;}
+  .sub-search-box input{
+    flex:1;min-width:0;border:none;outline:none;background:transparent;
+    padding:12px 0;font-family:inherit;font-size:15.5px;font-weight:600;color:var(--text-900);
+  }
+  .sub-search-box input::placeholder{color:var(--text-400);font-weight:500;}
+  .sub-search-box:focus-within{border-color:var(--blue-500);box-shadow:0 0 0 4px var(--blue-100);}
+  .sub-search-box:focus-within > svg{color:var(--blue-600);}
+  .sub-search-box.filled{border-color:var(--blue-500);}
+  .sub-search-box button{
+    border:none;background:transparent;cursor:pointer;display:flex;
+    padding:4px;border-radius:7px;color:var(--text-400);flex-shrink:0;
+  }
+  .sub-search-box button:hover{background:var(--paper);color:var(--red);}
+  @media (max-width:760px){
+    .sub-search-top{justify-content:stretch;}
+    .sub-search-box{width:100%;}
+  }
+
   /* -------- tarefas atribuídas da equipe -------- */
   .asg-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:4px;}
   .asg-kpi{background:#fff;border:1.5px solid var(--line);border-radius:13px;padding:14px 16px;box-shadow:var(--shadow-card);}
@@ -4956,6 +4983,14 @@ function subscriptionsTemplate(){
   const subsForSummary = f.company==='todas' ? state.subscriptions : state.subscriptions.filter(s=>s.grupo===f.company);
   const summary = subscriptionsSummary(subsForSummary, f);
   return `
+    <div class="sub-search-top">
+      ${f.search ? `<span class="sub-search-count">${list.length} resultado(s)</span>` : ''}
+      <div class="sub-search-box ${f.search?'filled':''}">
+        ${icon('search',18)}
+        <input type="text" id="subSearchInput" placeholder="Buscar ferramenta, plano, responsável..." value="${escapeHtml(f.search||'')}">
+        ${f.search ? `<button type="button" id="subSearchClear" title="Limpar busca">${icon('x',15)}</button>` : ''}
+      </div>
+    </div>
     <div class="fin-summary-cards">
       <div class="fin-summary-card" data-sub-card="custoMensal"><div class="fsc-label">Custo mensal (vence este mês)</div><div class="fsc-value">${fmtBRL(summary.custoMensal)}</div><div class="fsc-hint">ver lançamentos</div></div>
       <div class="fin-summary-card" data-sub-card="pagoMes"><div class="fsc-label">Pago no mês</div><div class="fsc-value" style="color:var(--green);">${fmtBRL(summary.pagoMes)}</div><div class="fsc-hint">ver lançamentos</div></div>
@@ -4977,7 +5012,6 @@ function subscriptionsTemplate(){
 
     <div class="toolbar" style="margin-top:10px;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <input type="text" id="subSearchInput" placeholder="Buscar ferramenta, plano, responsável..." value="${escapeHtml(f.search||'')}" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;width:210px;">
         <select id="subFilterCategory" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;font-weight:600;">
           <option value="todas">Todas categorias</option>
           ${SUB_CATEGORIES.map(c=>`<option value="${c}" ${f.category===c?'selected':''}>${c}</option>`).join('')}
@@ -5836,6 +5870,8 @@ function attachSubscriptionsEvents(){
     const freshEl = document.getElementById('subSearchInput');
     if(freshEl){ freshEl.focus(); freshEl.setSelectionRange(cursorPos, cursorPos); }
   });
+  const searchClear = document.getElementById('subSearchClear');
+  if(searchClear) searchClear.addEventListener('click', ()=>{ state.subFilter.search=''; render(); });
   const companyF = document.getElementById('subFilterCompany'); if(companyF) companyF.addEventListener('change', ()=>{ state.subFilter.company = companyF.value; render(); });
   document.querySelectorAll('[data-sub-company-filter]').forEach(b=>{
     b.addEventListener('click', ()=>{ state.subFilter.company = b.dataset.subCompanyFilter; render(); });
