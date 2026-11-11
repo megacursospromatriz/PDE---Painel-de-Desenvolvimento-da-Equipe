@@ -2833,6 +2833,9 @@ function horaDoTitulo(texto){
 }
 // Sem data o horário não tem onde cair (a tarefa aparece em todos os dias),
 // então a leitura só vale quando existe uma data.
+// Em aberto = ainda cobra uma ação. 'Concluído' e 'Não Concluído' encerram a
+// tarefa; 'Adiado' continua pendente.
+function dailyEmAberto(dt){ return dt.status==='andamento' || dt.status==='adiado'; }
 function horaEfetiva(item){
   if(item.time) return item.time;
   if(!item.date) return null;
@@ -2882,7 +2885,14 @@ function dailyViewItems(dateStr){
   let agendaItems, dailyItems;
   // Tarefas do dia sem data combinam com qualquer dia: ficam sempre visíveis,
   // como uma lista de pendências, até serem concluídas ou ganharem uma data.
-  const doDia = (d)=> d.date===dateStr || !d.date;
+  // E a tarefa COM data mas SEM horário, enquanto não for encerrada, se arrasta
+  // para os dias seguintes — senão ela sumiria da frente da pessoa à meia-noite
+  // sem nunca ter sido resolvida.
+  const doDia = (d)=>{
+    if(!d.date) return true;
+    if(d.date===dateStr) return true;
+    return d.date < dateStr && !horaEfetiva(d) && dailyEmAberto(d);
+  };
   if(canBrowse && state.dailyUserFilter==='todos'){
     const allowedIds = allowedAgendaUserIds(u);
     agendaItems = state.tasks.filter(t=>t.date===dateStr && allowedIds.includes(t.ownerId));
@@ -2952,6 +2962,7 @@ function dailyCardTemplate(dt, isMaster){
   <div class="daily-card">
     <div class="daily-card-top">
       ${!dt.date ? `<span class="time-badge" style="background:#f0eafc;color:#7048c9;">${icon('clipboard',12)} sem data</span>` : ''}
+      ${(dt.date && dt.date < state.dailyDate && dailyEmAberto(dt)) ? `<span class="time-badge" style="background:#fdf1de;color:#a16207;" title="Era para o dia ${formatDateBR(dt.date)} e ainda não foi encerrada">${icon('clock',12)} desde ${formatDateBR(dt.date)}</span>` : ''}
       ${isMaster ? `
       <span class="daily-user-chip">
         <span class="avatar" style="width:24px;height:24px;font-size:10.6px;">${avatarInner(assignedUser)}</span>
