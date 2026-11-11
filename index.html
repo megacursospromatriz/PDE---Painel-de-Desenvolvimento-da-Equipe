@@ -7981,6 +7981,15 @@ function cofreVerificarInatividade(){
 setInterval(cofreVerificarInatividade, 20000);
 
 /* ---------- criar o cofre / destrancar ---------- */
+// O registro de acessos é só do dono do cofre — quem o criou. Nem outro master
+// vê. Cofres antigos não guardavam o id, por isso o encaixe pelo nome.
+function cofreEhDono(){
+  const u = state.currentUser, m = state.cofreMeta;
+  if(!u || !m) return false;
+  if(m.criadoPorId) return m.criadoPorId === u.id;
+  return !!m.criadoPor && m.criadoPor === u.name;
+}
+
 async function cofreCriar(senhaMestra){
   const salt = cofreBytesParaB64(crypto.getRandomValues(new Uint8Array(16)));
   const chave = await cofreDerivarChave(senhaMestra, salt, COFRE_ITERACOES);
@@ -7989,6 +7998,7 @@ async function cofreCriar(senhaMestra){
     verificador: await cofreCifrar(chave, COFRE_VERIFICADOR),
     dados: await cofreCifrar(chave, '[]'),
     criadoEm: todayStr(), criadoPor: state.currentUser ? state.currentUser.name : '',
+    criadoPorId: state.currentUser ? state.currentUser.id : '',
   };
   state.cofreChave = chave;
   state.cofreItens = [];
@@ -8107,7 +8117,7 @@ function cofreListaTemplate(){
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn btn-ghost btn-sm" id="cofreImportarBtn">${icon('upload',14)} Importar planilha</button>
         <input type="file" id="cofreImportarInput" accept=".xlsx,.xls" style="display:none;">
-        <button class="btn btn-ghost btn-sm" id="cofreLogBtn">${icon('history',14)} Quem acessou</button>
+        ${cofreEhDono() ? `<button class="btn btn-ghost btn-sm" id="cofreLogBtn">${icon('history',14)} Quem acessou</button>` : ''}
         <button class="btn btn-ghost btn-sm" id="cofreTrancarBtn">${icon('logout',14)} Trancar agora</button>
         <button class="btn btn-primary btn-sm" id="cofreNovoBtn">${icon('plus',15)} Nova senha</button>
       </div>
@@ -8159,7 +8169,7 @@ function cofreItemTemplate(item){
         <button class="btn btn-icon btn-xs" data-cofre-copia-senha="${item.id}" title="Copiar senha">${icon('file',12)}</button>`
         : `<span class="cofre-val" style="color:var(--text-400);font-weight:500;">sem senha cadastrada</span>`}
       </div>
-      ${item.atualizadaEm?`<div class="cofre-par"><span class="cofre-rot">Atualizada</span><span class="cofre-val mono">${escapeHtml(item.atualizadaEm)}</span></div>`:''}
+      ${item.atualizadaEm?`<div class="cofre-par"><span class="cofre-rot">Atualizada</span><span class="cofre-val mono">${escapeHtml(cofreDataTexto(item.atualizadaEm))}</span></div>`:''}
     </div>
     ${item.observacoes?`<div class="cofre-obs">${icon('edit',11)} ${escapeHtml(item.observacoes)}</div>`:''}
   </div>`;
@@ -8242,6 +8252,7 @@ function openCofreItemModal(existing){
 
 /* ---------- registro de acessos ---------- */
 async function openCofreLogModal(){
+  if(!cofreEhDono()){ toast('O registro de acessos é só do dono do cofre.', 'err'); return; }
   const linhas = (state.cofreLog||[]).slice().reverse();
   for(const l of linhas){
     if(l.detalheCif && state.cofreChave){
@@ -8294,6 +8305,27 @@ async function cofreCopiar(texto, rotulo){
   }
 }
 
+/* ---------- data da planilha ---------- */
+// O Excel guarda data como número de dias desde 30/12/1899. O SheetJS devolve
+// esse número cru, então "46337" chegava na tela no lugar de "11/11/2026".
+function cofreDataTexto(v){
+  if(v===null || v===undefined) return '';
+  const t = String(v).trim();
+  if(!t) return '';
+  if(/^\d{4,6}([.,]\d+)?$/.test(t)){
+    const serial = parseFloat(t.replace(',', '.'));
+    if(serial > 20000 && serial < 60000){
+      const d = new Date(Math.round((serial - 25569) * 86400000));
+      if(!isNaN(d)){
+        const p = n=>String(n).padStart(2,'0');
+        return p(d.getUTCDate())+'/'+p(d.getUTCMonth()+1)+'/'+d.getUTCFullYear();
+      }
+    }
+  }
+  if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return formatDateBR(t);
+  return t;
+}
+
 /* ---------- importar a planilha do Gerenciador de Senhas ---------- */
 // A planilha tem duas linhas de título antes do cabeçalho, por isso range:2.
 function cofreLerPlanilha(arrayBuffer){
@@ -8320,7 +8352,7 @@ function cofreLerPlanilha(arrayBuffer){
       senha,
       link: achaCampo(l, 'link'),
       observacoes: achaCampo(l, 'observa'),
-      atualizadaEm: achaCampo(l, 'atualiza'),
+      atualizadaEm: cofreDataTexto(achaCampo(l, 'atualiza')),
     });
   });
   return out;
