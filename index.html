@@ -637,6 +637,62 @@
   .mstat span{font-size:10.6px;color:var(--text-400);text-transform:uppercase;letter-spacing:.04em;}
   .member-card .btn{width:100%;margin-top:14px;}
 
+  /* -------- cofre de senhas -------- */
+  .cofre-portao{
+    max-width:430px;margin:40px auto;background:#fff;border:1.5px solid var(--line);
+    border-radius:18px;padding:30px 28px;box-shadow:var(--shadow-card);text-align:center;
+  }
+  .cofre-cadeado{
+    width:56px;height:56px;border-radius:16px;margin:0 auto 16px;
+    background:var(--navy-950);color:#fff;display:flex;align-items:center;justify-content:center;
+  }
+  .cofre-portao h2{font-size:21px;margin:0 0 8px;color:var(--text-900);}
+  .cofre-sub{font-size:14.6px;color:var(--text-600);line-height:1.6;margin:0 0 18px;}
+  .cofre-alerta{
+    display:flex;gap:10px;text-align:left;background:var(--amber-bg);border:1.5px solid #f0d9ad;
+    color:#7a5411;padding:12px 14px;border-radius:11px;font-size:13.4px;line-height:1.55;margin-bottom:18px;
+  }
+  .cofre-alerta svg{flex-shrink:0;margin-top:2px;color:var(--amber);}
+  .cofre-campo{text-align:left;margin-bottom:14px;}
+  .cofre-campo label{display:block;font-size:13.4px;font-weight:700;color:var(--text-600);margin-bottom:6px;}
+  .cofre-campo input{
+    width:100%;padding:12px 14px;border:1.5px solid var(--line);border-radius:11px;
+    font-size:15.1px;font-family:inherit;
+  }
+  .cofre-campo input:focus{outline:none;border-color:var(--blue-500);box-shadow:0 0 0 4px var(--blue-100);}
+  .cofre-btn{width:100%;justify-content:center;margin-top:6px;}
+  .cofre-rodape{font-size:12.6px;color:var(--text-400);margin-top:16px;line-height:1.5;}
+
+  .cofre-barra{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    background:var(--green-bg);border:1.5px solid #a9dfc4;border-radius:13px;
+    padding:12px 16px;margin-bottom:16px;
+  }
+  .cofre-barra-info{display:flex;align-items:center;gap:11px;color:#14603f;}
+  .cofre-barra-info svg{flex-shrink:0;}
+  .cofre-barra-info b{display:block;font-size:14.6px;}
+  .cofre-barra-info span{display:block;font-size:12.6px;opacity:.85;}
+
+  .cofre-lista{display:flex;flex-direction:column;gap:12px;}
+  .cofre-item{background:#fff;border:1.5px solid var(--line);border-radius:14px;box-shadow:var(--shadow-card);overflow:hidden;}
+  .cofre-item-cab{display:flex;align-items:center;gap:11px;padding:12px 16px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap;}
+  .cofre-cat{font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:7px;white-space:nowrap;}
+  .cofre-servico{font-weight:700;font-size:16.2px;flex:1;min-width:140px;}
+  .cofre-link{font-size:12.6px;font-weight:700;color:var(--blue-600);text-decoration:none;display:inline-flex;align-items:center;gap:4px;}
+  .cofre-link:hover{text-decoration:underline;}
+  .cofre-item-acoes{display:flex;gap:6px;}
+  .cofre-campos{display:flex;flex-wrap:wrap;gap:10px 26px;padding:12px 16px;}
+  .cofre-par{display:flex;align-items:center;gap:8px;min-width:0;}
+  .cofre-rot{font-size:10.8px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--text-400);}
+  .cofre-val{font-size:14.6px;font-weight:600;color:var(--text-900);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:320px;}
+  .cofre-senha{font-family:Arial,Helvetica,sans-serif;letter-spacing:.08em;color:var(--text-400);}
+  .cofre-senha.aberta{color:var(--red);letter-spacing:0;background:var(--red-bg);padding:2px 8px;border-radius:6px;}
+  .cofre-obs{padding:0 16px 12px;font-size:13.4px;color:var(--text-600);line-height:1.5;}
+  .btn-xs{width:26px;height:26px;padding:0;}
+  @media (max-width:760px){
+    .cofre-val{max-width:180px;}
+  }
+
   /* -------- busca em destaque das assinaturas -------- */
   .sub-search-top{display:flex;justify-content:flex-end;align-items:center;gap:12px;margin:0 0 16px;flex-wrap:wrap;}
   .sub-search-count{font-size:13.4px;font-weight:700;color:var(--blue-600);}
@@ -713,6 +769,11 @@
   .role-master{background:var(--navy-950);color:#fff;}
   .role-user{background:var(--blue-100);color:var(--blue-700);}
   .row-actions{display:flex;gap:6px;}
+  .situacao-tag{font-size:11.8px;font-weight:700;padding:3px 10px;border-radius:100px;display:inline-block;}
+  .situacao-ativo{background:var(--green-bg);color:#157a4a;}
+  .situacao-inativo{background:#fbe7e7;color:#b91c1c;}
+  tr.user-inativo td{opacity:.62;}
+  tr.user-inativo td:last-child, tr.user-inativo .situacao-tag{opacity:1;}
 
   .backup-note{
     display:flex;gap:12px;align-items:flex-start;
@@ -1015,6 +1076,7 @@ const ALL_TABS = [
   {key:'implantacao', label:'Protocolo de Implantação'},
   {key:'overview', label:'Visão Geral'},
   {key:'team', label:'Equipe'},
+  {key:'senhas', label:'Senhas (Cofre)'},
 ];
 const DEFAULT_TABS_USER = ['agenda','monthcal','daily','checklist','assigned','w2h','notices','chat','repasse'];
 // "Agenda Usuário" fica de fora do padrão — o super-admin decide, master a
@@ -1171,6 +1233,16 @@ const state = {
   repasseFilterMonth: new Date().getMonth()+1,
   repasseFilterYear: new Date().getFullYear(),
   avatarCache:{},
+  // cofre de senhas — cofreChave e cofreItens existem SÓ na memória desta sessão
+  cofreMeta:null,
+  cofreChave:null,
+  cofreItens:null,
+  cofreLog:[],
+  cofreErro:'',
+  cofreBusca:'',
+  cofreCategoria:'todas',
+  cofreRevelado:null,
+  cofreUltimoUso:0,
 };
 
 function uid(prefix){ return prefix+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
@@ -1246,6 +1318,8 @@ function shiftMonth(monthStr, delta){
 const MONTH_NAMES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 function monthLabelPT(monthStr){ const {year,month} = monthMeta(monthStr); return `${MONTH_NAMES_PT[month-1]} de ${year}`; }
 function userById(id){ return state.users.find(u=>u.id===id); }
+// Cadastro antigo não tem o campo: quem não foi marcado como inativo é ativo.
+function userAtivo(u){ return !u || u.ativo!==false; }
 
 /* ---------------- janela de preenchimento do 5W2H (dias 20 a 25) ---------------- */
 const W2H_OPEN_DAY = 20;
@@ -1327,6 +1401,8 @@ async function loadData(){
         // "Protocolo de Implantação" entra no mesmo padrão: liberado só para
         // masters por padrão, e manualmente para quem mais precisar.
         if(u.role==='master' && !u.tabs.includes('implantacao')){ u.tabs.push('implantacao'); migrated = true; }
+        // Cofre de senhas: só masters por padrão; os demais precisam de liberação manual.
+        if(u.role==='master' && !u.tabs.includes('senhas')){ u.tabs.push('senhas'); migrated = true; }
         // "Repasse" é liberado por padrão para colaboradores (eles usam pra
         // enviar nota fiscal); masters continuam precisando de liberação manual.
         if(u.role!=='master' && !u.tabs.includes('repasse')){ u.tabs.push('repasse'); migrated = true; }
@@ -1356,6 +1432,7 @@ async function loadData(){
     const r = await window.storage.get('mega_checklist', true);
     state.checklistItems = r ? JSON.parse(r.value) : [];
   }catch(e){ state.checklistItems = []; }
+  await cofreCarregarEnvelope();
   try{
     const r = await window.storage.get('mega_notifications', true);
     state.notifications = r ? JSON.parse(r.value) : [];
@@ -1954,6 +2031,11 @@ function loginTemplate(){
 function attachLoginEvents(){
   const doLogin = (username, password)=>{
     const u = state.users.find(x => x.username.toLowerCase()===username.trim().toLowerCase() && x.password===password);
+    if(u && !userAtivo(u)){
+      const err = document.getElementById('loginError');
+      if(err) err.textContent = 'Acesso desligado' + (u.dataDemissao ? ' em '+formatDateBR(u.dataDemissao) : '') + '. Fale com o administrador.';
+      return;
+    }
     const errEl = document.getElementById('loginError');
     if(!u){ if(errEl) errEl.textContent = 'Usuário ou senha inválidos.'; return; }
     if(errEl) errEl.textContent = '';
@@ -2005,10 +2087,11 @@ function shellTemplate(){
     {key:'implantacao', label:'Implantação', icon:'building'},
     {key:'overview', label:'Visão Geral', icon:'grid'},
     {key:'team', label:'Equipe', icon:'users'},
+    {key:'senhas', label:'Senhas', icon:'eye'},
   ];
   const myTabs = userTabs(u);
   const navItems = allNavItems.filter(n=>myTabs.includes(n.key));
-  const titles = {agenda:'Compromissos', monthcal:'Agenda Mensal', daily:'Agenda do Dia', checklist:'Checklist', assigned:'Tarefas Atribuídas da Equipe', w2h:'5W2H', repasse:'Repasse', notices:'Avisos', chat:'Chat', user_agenda:'Agenda Usuário', history:'Histórico', financeiro:'Financeiro', implantacao:'Protocolo de Implantação', overview:'Visão Geral do Grupo', team:'Gerenciar Equipe'};
+  const titles = {agenda:'Compromissos', monthcal:'Agenda Mensal', daily:'Agenda do Dia', checklist:'Checklist', assigned:'Tarefas Atribuídas da Equipe', w2h:'5W2H', repasse:'Repasse', notices:'Avisos', chat:'Chat', user_agenda:'Agenda Usuário', history:'Histórico', financeiro:'Financeiro', implantacao:'Protocolo de Implantação', overview:'Visão Geral do Grupo', team:'Gerenciar Equipe', senhas:'Cofre de Senhas'};
   const subs = {
     agenda:'Suas tarefas, reuniões e compromissos.',
     monthcal:'Visão do mês inteiro — clique em um dia para ver ou cadastrar compromissos.',
@@ -2025,6 +2108,7 @@ function shellTemplate(){
     chat:'Converse em tempo real com a equipe.',
     overview:'Acompanhe o desempenho de todos os colaboradores.',
     team:'Cadastre e gerencie os acessos da equipe.',
+    senhas:'Senhas da operação, guardadas criptografadas. Abre só com a sua senha de login mais a senha-mestra do cofre.',
   };
   if(!myTabs.includes(state.view) && navItems.length){ state.view = navItems[0].key; }
   return `
@@ -2064,7 +2148,7 @@ function shellTemplate(){
         </div>
       </header>
       <div class="content" id="viewContent">
-        ${state.view==='agenda' ? agendaTemplate() : state.view==='monthcal' ? monthCalTemplate() : state.view==='daily' ? dailyTemplate() : state.view==='checklist' ? checklistTemplate() : state.view==='assigned' ? assignedTemplate() : state.view==='w2h' ? w2hTemplate() : state.view==='repasse' ? repasseTemplate() : state.view==='notices' ? noticesTemplate() : state.view==='chat' ? chatTemplate() : state.view==='user_agenda' ? userAgendaTemplate() : state.view==='history' ? historyTemplate() : state.view==='financeiro' ? financeiroTemplate() : state.view==='implantacao' ? implantacaoTemplate() : state.view==='overview' ? overviewTemplate() : teamTemplate()}
+        ${state.view==='agenda' ? agendaTemplate() : state.view==='monthcal' ? monthCalTemplate() : state.view==='daily' ? dailyTemplate() : state.view==='checklist' ? checklistTemplate() : state.view==='assigned' ? assignedTemplate() : state.view==='w2h' ? w2hTemplate() : state.view==='repasse' ? repasseTemplate() : state.view==='notices' ? noticesTemplate() : state.view==='chat' ? chatTemplate() : state.view==='user_agenda' ? userAgendaTemplate() : state.view==='history' ? historyTemplate() : state.view==='financeiro' ? financeiroTemplate() : state.view==='implantacao' ? implantacaoTemplate() : state.view==='overview' ? overviewTemplate() : state.view==='senhas' ? senhasTemplate() : teamTemplate()}
       </div>
     </main>
   </div>`;
@@ -2072,9 +2156,14 @@ function shellTemplate(){
 
 function attachShellEvents(){
   document.querySelectorAll('[data-nav]').forEach(b=>{
-    b.addEventListener('click', ()=>{ state.view = b.dataset.nav; state.overviewUserId=null; render(); });
+    b.addEventListener('click', ()=>{
+      // sair da aba tranca o cofre na hora — a chave não sobrevive à navegação
+      if(state.view==='senhas' && b.dataset.nav!=='senhas') cofreTrancar('Cofre trancado ao sair da aba.');
+      state.view = b.dataset.nav; state.overviewUserId=null; render();
+    });
   });
   document.getElementById('logoutBtn').addEventListener('click', ()=>{
+    cofreTrancar();
     state.currentUser = null; render();
   });
   const bell = document.getElementById('bellBtn');
@@ -2099,6 +2188,7 @@ function attachShellEvents(){
   if(state.view==='implantacao') attachImplantacaoEvents();
   if(state.view==='overview') attachOverviewEvents();
   if(state.view==='team') attachTeamEvents();
+  if(state.view==='senhas') attachSenhasEvents();
 }
 
 /* ================= PLANNER VIEW ================= */
@@ -7342,7 +7432,7 @@ function teamTemplate(){
       </div>`}
     </div>
     <div class="toolbar" style="margin-top:0;">
-      <div style="font-size:14.6px;color:var(--text-400);">${state.users.length} usuário(s) cadastrado(s)</div>
+      <div style="font-size:14.6px;color:var(--text-400);">${state.users.length} usuário(s) cadastrado(s) · ${state.users.filter(x=>userAtivo(x)).length} ativo(s) · ${state.users.filter(x=>!userAtivo(x)).length} inativo(s)</div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button class="btn btn-ghost" id="exportDataBtn">${icon('download',15)} Exportar dados</button>
         <button class="btn btn-ghost" id="importDataBtn">${icon('upload',15)} Importar dados</button>
@@ -7352,10 +7442,10 @@ function teamTemplate(){
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Nome</th><th>Cargo</th><th>Unidade</th><th>Usuário</th><th>Empresa</th><th>Papel</th><th></th></tr></thead>
+        <thead><tr><th>Nome</th><th>Cargo</th><th>Unidade</th><th>Usuário</th><th>Empresa</th><th>Papel</th><th>Situação</th><th></th></tr></thead>
         <tbody>
           ${state.users.map(u=>`
-            <tr>
+            <tr class="${userAtivo(u)?'':'user-inativo'}">
               <td style="display:flex;align-items:center;gap:10px;">
                 <span class="avatar" style="width:28px;height:28px;font-size:11.8px;">${avatarInner(u)}</span>
                 <span style="font-weight:600;">${escapeHtml(u.name)}</span>
@@ -7365,6 +7455,9 @@ function teamTemplate(){
               <td class="mono" style="color:var(--text-600);">${escapeHtml(u.username)}</td>
               <td>${escapeHtml(companiesLabel(u))}</td>
               <td><span class="role-tag ${u.role==='master'?'role-master':'role-user'}">${u.role==='master'?'MASTER':'USUÁRIO'}</span></td>
+              <td>${userAtivo(u)
+                ? `<span class="situacao-tag situacao-ativo">Ativo</span>`
+                : `<span class="situacao-tag situacao-inativo">Inativo</span>${u.dataDemissao?`<div class="mono" style="font-size:11.8px;color:var(--text-400);margin-top:3px;">desligado em ${formatDateBR(u.dataDemissao)}</div>`:''}`}</td>
               <td>
                 <div class="row-actions">
                   <button class="btn btn-icon" data-edit-user="${u.id}" title="Editar">${icon('edit',14)}</button>
@@ -7413,8 +7506,8 @@ function exportBackup(){
   const wb = XLSX.utils.book_new();
 
   const usersRows = [
-    ['id','Nome','Usuário','Senha','Papel','Empresas','Abas com acesso','Pode ver agenda de outros','Agenda privada'],
-    ...state.users.map(u=>[u.id, u.name, u.username, u.password, u.role, (u.companies||[]).join(', '), (u.tabs||[]).join(', '), u.canViewOthersAgenda?'sim':'não', u.agendaHiddenFromOthers?'sim':'não']),
+    ['id','Nome','Usuário','Senha','Papel','Empresas','Abas com acesso','Pode ver agenda de outros','Agenda privada','Situação','Data de demissão'],
+    ...state.users.map(u=>[u.id, u.name, u.username, u.password, u.role, (u.companies||[]).join(', '), (u.tabs||[]).join(', '), u.canViewOthersAgenda?'sim':'não', u.agendaHiddenFromOthers?'sim':'não', userAtivo(u)?'ativo':'inativo', u.dataDemissao||'']),
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(usersRows), 'Usuarios');
 
@@ -7464,6 +7557,9 @@ function handleImportFile(file){
       role:r['Papel'], companies:String(r['Empresas']||'').split(',').map(s=>s.trim()).filter(Boolean),
       tabs:String(r['Abas com acesso']||'').split(',').map(s=>s.trim()).filter(Boolean),
       canViewOthersAgenda:r['Pode ver agenda de outros']==='sim', agendaHiddenFromOthers:r['Agenda privada']==='sim',
+      // backup antigo não tem a coluna — quem não vier marcado como inativo entra como ativo
+      ativo: String(r['Situação']||'').trim().toLowerCase()!=='inativo',
+      dataDemissao: r['Data de demissão'] ? String(r['Data de demissão']) : '',
     }));
     const tasks = tasksRaw.map(r=>{
       const participants = String(r['Participantes (id:status)']||'').split(',').map(s=>s.trim()).filter(Boolean).map(pair=>{
@@ -7555,6 +7651,21 @@ function openUserModal(existing){
             <div class="field">
               <label for="uCidade">Cidade</label>
               <input type="text" id="uCidade" value="${existing?escapeHtml(existing.cidade||''):''}">
+            </div>
+          </div>
+          <div class="grid2">
+            <div class="field">
+              <label for="uSituacao">Situação</label>
+              <select id="uSituacao">
+                <option value="ativo" ${(!existing || existing.ativo!==false)?'selected':''}>Ativo</option>
+                <option value="inativo" ${existing && existing.ativo===false?'selected':''}>Inativo (desligado)</option>
+              </select>
+              <div class="hint-text">Usuário inativo não consegue mais entrar no painel.</div>
+            </div>
+            <div class="field">
+              <label for="uDataDemissao">Data de demissão</label>
+              <input type="date" id="uDataDemissao" value="${existing?escapeHtml(existing.dataDemissao||''):''}">
+              <div class="hint-text">Preenchida só para quem foi desligado.</div>
             </div>
           </div>
           <div class="field">
@@ -7687,6 +7798,8 @@ function openUserModal(existing){
     const estado = document.getElementById('uEstado').value;
     const cidade = document.getElementById('uCidade').value.trim();
     const phone = document.getElementById('uPhone').value.trim();
+    const ativo = document.getElementById('uSituacao').value!=='inativo';
+    const dataDemissao = document.getElementById('uDataDemissao').value || '';
     const companies = Array.from(document.querySelectorAll('#uCompanies input:checked')).map(i=>i.value);
     const isSelfTeamLock = existing && existing.id===state.currentUser.id && existing.role==='master';
     const tabs = Array.from(document.querySelectorAll('#uTabs input:checked')).map(i=>i.value);
@@ -7699,6 +7812,7 @@ function openUserModal(existing){
     if(cpf && !isValidCPF(cpf)){ document.getElementById('uCpfHint').style.display=''; errEl.textContent='Confira o CPF informado.'; return; }
     if(!companies.length){ errEl.textContent='Selecione ao menos uma empresa.'; return; }
     if(!tabs.length){ errEl.textContent='Selecione ao menos uma aba de acesso.'; return; }
+    if(!ativo && existing && existing.id===state.currentUser.id){ errEl.textContent='Você não pode inativar o seu próprio acesso.'; return; }
     const dupe = state.users.find(x=>x.username.toLowerCase()===username.toLowerCase() && x.id!==(existing?existing.id:null));
     if(dupe){ errEl.textContent='Já existe um usuário com esse login.'; return; }
 
@@ -7716,15 +7830,654 @@ function openUserModal(existing){
       existing.name=name; existing.username=username; existing.password=password; existing.companies=companies; existing.role=role; existing.tabs=tabs; existing.hasAvatar=hasAvatar;
       existing.canViewOthersAgenda=canViewOthersAgenda; existing.agendaHiddenFromOthers=agendaHiddenFromOthers;
       existing.cargo=cargo; existing.cpf=cpf; existing.unidade=unidade; existing.estado=estado; existing.cidade=cidade; existing.phone=phone;
+      existing.ativo=ativo; existing.dataDemissao=dataDemissao;
       toast('Usuário atualizado.');
     } else {
-      state.users.push({id:userId, name, username, password, companies, role, tabs, hasAvatar, canViewOthersAgenda, agendaHiddenFromOthers, cargo, cpf, unidade, estado, cidade, phone});
+      state.users.push({id:userId, name, username, password, companies, role, tabs, hasAvatar, canViewOthersAgenda, agendaHiddenFromOthers, cargo, cpf, unidade, estado, cidade, phone, ativo, dataDemissao});
       toast('Usuário cadastrado.');
     }
     await saveUsers();
     close();
     render();
   });
+}
+
+/* ================= COFRE DE SENHAS ================= */
+// As senhas NUNCA são gravadas em texto puro. O que vai para o banco é um
+// envelope cifrado com AES-GCM; a chave vem de PBKDF2 sobre a senha-mestra do
+// cofre, que não é guardada em lugar nenhum — nem aqui, nem no Firestore.
+// Quem conseguir ler o banco vê só bytes embaralhados.
+// Abrir a aba exige DUAS coisas: a senha de login da pessoa (prova que é ela)
+// e a senha-mestra do cofre (sem ela não há como decifrar).
+const COFRE_CHAVE = 'mega_cofre';
+const COFRE_CHAVE_LOG = 'mega_cofre_log';
+let COFRE_ITERACOES = 600000;            // 'let' só para o teste automatizado baixar o custo
+const COFRE_VERIFICADOR = 'mega-cofre-ok-v1';
+let COFRE_TIMEOUT_MS = 5 * 60 * 1000;    // tranca sozinho depois de 5 min parado
+let COFRE_REVELA_MS = 20000;             // senha à mostra some em 20s
+const COFRE_LOG_MAX = 200;
+
+const COFRE_CATEGORIAS = [
+  {key:'email',    label:'📧 E-mail',        cor:'#2148c9', bg:'#e8edfb'},
+  {key:'redes',    label:'📱 Redes Sociais', cor:'#a21caf', bg:'#f8e8fb'},
+  {key:'banco',    label:'🏦 Banco',         cor:'#157a4a', bg:'#e4f7ee'},
+  {key:'trabalho', label:'💼 Trabalho',      cor:'#a16207', bg:'#fef3c7'},
+  {key:'streaming',label:'🎬 Streaming',     cor:'#be123c', bg:'#fde8ec'},
+  {key:'compras',  label:'🛒 Compras',       cor:'#c2410c', bg:'#fdeadd'},
+  {key:'ia',       label:'🤖 IA & Tech',     cor:'#7048c9', bg:'#efe8fb'},
+  {key:'seguranca',label:'🔒 Segurança',     cor:'#334155', bg:'#e8ecf2'},
+  {key:'educacao', label:'📚 Educação',      cor:'#0e7490', bg:'#e0f3f7'},
+  {key:'saude',    label:'🏥 Saúde',         cor:'#b91c1c', bg:'#fbe7e7'},
+  {key:'outros',   label:'🌐 Outros',        cor:'#64748b', bg:'#eef1f5'},
+];
+function cofreCategoriaMeta(key){ return COFRE_CATEGORIAS.find(c=>c.key===key) || COFRE_CATEGORIAS[COFRE_CATEGORIAS.length-1]; }
+// A planilha traz a categoria por extenso, com emoji — aqui ela vira uma chave.
+function cofreCategoriaDeTexto(txt){
+  const t = (txt||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+  if(t.includes('mail')) return 'email';
+  if(t.includes('rede') || t.includes('social')) return 'redes';
+  if(t.includes('banc')) return 'banco';
+  if(t.includes('trabalh')) return 'trabalho';
+  if(t.includes('stream')) return 'streaming';
+  if(t.includes('compra')) return 'compras';
+  if(t.includes('ia') || t.includes('tech')) return 'ia';
+  if(t.includes('seguran')) return 'seguranca';
+  if(t.includes('educa')) return 'educacao';
+  if(t.includes('saude')) return 'saude';
+  return 'outros';
+}
+
+/* ---------- criptografia ---------- */
+function cofreBytesParaB64(bytes){ let s=''; bytes.forEach(b=>{ s += String.fromCharCode(b); }); return btoa(s); }
+function cofreB64ParaBytes(b64){ const s = atob(b64); const out = new Uint8Array(s.length); for(let i=0;i<s.length;i++) out[i]=s.charCodeAt(i); return out; }
+function cofreCriptoDisponivel(){ return !!(window.crypto && window.crypto.subtle); }
+
+async function cofreDerivarChave(senhaMestra, saltB64, iteracoes){
+  const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(senhaMestra), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt: cofreB64ParaBytes(saltB64), iterations: iteracoes, hash:'SHA-256'},
+    base, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function cofreCifrar(chave, texto){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, chave, new TextEncoder().encode(texto));
+  return { iv: cofreBytesParaB64(iv), ct: cofreBytesParaB64(new Uint8Array(ct)) };
+}
+async function cofreDecifrar(chave, pacote){
+  const buf = await crypto.subtle.decrypt({name:'AES-GCM', iv: cofreB64ParaBytes(pacote.iv)}, chave, cofreB64ParaBytes(pacote.ct));
+  return new TextDecoder().decode(buf);
+}
+
+/* ---------- carregar / salvar ---------- */
+async function cofreCarregarEnvelope(){
+  try{
+    const r = await window.storage.get(COFRE_CHAVE, true);
+    state.cofreMeta = r ? JSON.parse(r.value) : null;
+  }catch(e){ state.cofreMeta = null; }
+  try{
+    const r = await window.storage.get(COFRE_CHAVE_LOG, true);
+    state.cofreLog = r ? JSON.parse(r.value) : [];
+  }catch(e){ state.cofreLog = []; }
+}
+// Grava o envelope cifrado. Só funciona com o cofre destrancado, porque a
+// chave vive apenas na memória desta sessão.
+async function cofreSalvarItens(){
+  if(!state.cofreChave || !state.cofreMeta) throw new Error('Cofre trancado.');
+  const dados = await cofreCifrar(state.cofreChave, JSON.stringify(state.cofreItens||[]));
+  state.cofreMeta.dados = dados;
+  state.cofreMeta.atualizadoEm = todayStr();
+  state.cofreMeta.atualizadoPor = state.currentUser ? state.currentUser.name : '';
+  await window.storage.set(COFRE_CHAVE, JSON.stringify(state.cofreMeta), true);
+}
+// O registro guarda só QUEM fez O QUE e QUANDO — nunca a senha em si.
+async function cofreRegistrar(acao, detalhe){
+  const u = state.currentUser;
+  const stamp = nowStamp();
+  const linha = {
+    data: stamp.date, hora: stamp.time,
+    porId: u?u.id:'', porNome: u?u.name:'',
+    acao,
+  };
+  // o detalhe costuma ser o nome do serviço: vai cifrado, para o banco não
+  // entregar a lista de contas que existem no cofre
+  if(detalhe && state.cofreChave){
+    try{ linha.detalheCif = await cofreCifrar(state.cofreChave, String(detalhe)); }
+    catch(e){ /* sem chave utilizável: o registro fica sem o detalhe */ }
+  }
+  state.cofreLog = (state.cofreLog||[]).concat([linha]).slice(-COFRE_LOG_MAX);
+  try{ await window.storage.set(COFRE_CHAVE_LOG, JSON.stringify(state.cofreLog), true); }
+  catch(e){ console.error('[MEGA] Falha ao registrar o acesso ao cofre:', e); }
+}
+
+/* ---------- trancar ---------- */
+function cofreTrancar(motivo){
+  const estava = !!state.cofreChave;
+  state.cofreChave = null;
+  state.cofreItens = null;
+  state.cofreRevelado = null;
+  state.cofreErro = '';
+  if(estava && motivo) toast(motivo);
+  return estava;
+}
+function cofreMarcarAtividade(){ state.cofreUltimoUso = Date.now(); }
+function cofreVerificarInatividade(){
+  if(!state.cofreChave) return;
+  if(Date.now() - (state.cofreUltimoUso||0) > COFRE_TIMEOUT_MS){
+    cofreTrancar('Cofre trancado automaticamente por inatividade.');
+    render();
+  }
+}
+setInterval(cofreVerificarInatividade, 20000);
+
+/* ---------- criar o cofre / destrancar ---------- */
+async function cofreCriar(senhaMestra){
+  const salt = cofreBytesParaB64(crypto.getRandomValues(new Uint8Array(16)));
+  const chave = await cofreDerivarChave(senhaMestra, salt, COFRE_ITERACOES);
+  state.cofreMeta = {
+    v:1, salt, iter: COFRE_ITERACOES,
+    verificador: await cofreCifrar(chave, COFRE_VERIFICADOR),
+    dados: await cofreCifrar(chave, '[]'),
+    criadoEm: todayStr(), criadoPor: state.currentUser ? state.currentUser.name : '',
+  };
+  state.cofreChave = chave;
+  state.cofreItens = [];
+  await window.storage.set(COFRE_CHAVE, JSON.stringify(state.cofreMeta), true);
+  cofreMarcarAtividade();
+  await cofreRegistrar('cofre criado');
+}
+// Devolve null quando a senha-mestra está errada: o AES-GCM não decifra o
+// verificador, e é isso que prova que a senha confere.
+async function cofreDestrancar(senhaMestra){
+  const meta = state.cofreMeta;
+  const chave = await cofreDerivarChave(senhaMestra, meta.salt, meta.iter || COFRE_ITERACOES);
+  try{
+    const prova = await cofreDecifrar(chave, meta.verificador);
+    if(prova !== COFRE_VERIFICADOR) return null;
+  }catch(e){ return null; }
+  let itens = [];
+  try{ itens = JSON.parse(await cofreDecifrar(chave, meta.dados)) || []; }
+  catch(e){ itens = []; }
+  state.cofreChave = chave;
+  state.cofreItens = itens;
+  cofreMarcarAtividade();
+  return itens;
+}
+
+/* ---------- filtro ---------- */
+function cofreItensFiltrados(){
+  let itens = (state.cofreItens||[]).slice();
+  if(state.cofreCategoria && state.cofreCategoria!=='todas'){
+    itens = itens.filter(i=>i.categoria===state.cofreCategoria);
+  }
+  const q = (state.cofreBusca||'').normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
+  if(q){
+    // de propósito NÃO busca dentro da senha
+    itens = itens.filter(i=>{
+      const alvo = (i.servico+' '+i.usuario+' '+(i.link||'')+' '+(i.observacoes||''))
+        .normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+      return alvo.includes(q);
+    });
+  }
+  return itens.sort((a,b)=>(a.servico||'').localeCompare(b.servico||'','pt-BR'));
+}
+
+/* ---------- telas ---------- */
+function senhasTemplate(){
+  if(!cofreCriptoDisponivel()){
+    return `<div class="empty-state">${icon('info',40)}<h3>Navegador sem suporte à criptografia</h3>
+      <p>Abra o painel pelo endereço https:// (não por um arquivo local) e use um navegador atualizado.</p></div>`;
+  }
+  if(!state.cofreMeta) return cofreCriarTemplate();
+  if(!state.cofreChave) return cofreDestrancarTemplate();
+  return cofreListaTemplate();
+}
+
+function cofreCriarTemplate(){
+  const ehMaster = state.currentUser.role==='master';
+  if(!ehMaster){
+    return `<div class="empty-state">${icon('info',40)}<h3>O cofre ainda não foi criado</h3>
+      <p>Peça a um operador master para criar o cofre e definir a senha-mestra.</p></div>`;
+  }
+  return `
+  <div class="cofre-portao">
+    <div class="cofre-cadeado">${icon('info',26)}</div>
+    <h2>Criar o cofre de senhas</h2>
+    <p class="cofre-sub">Escolha a <b>senha-mestra do cofre</b>. É com ela que tudo é embaralhado antes de ir para o banco de dados — nem eu, nem o Firebase, nem ninguém guarda essa senha em lugar nenhum.</p>
+    <div class="cofre-alerta">${icon('info',16)}<div><b>Se essa senha for perdida, o conteúdo do cofre não tem como ser recuperado.</b> Guarde-a fora do sistema e combine com quem mais precisa entrar.</div></div>
+    <div class="cofre-campo">
+      <label for="cofreNova">Senha-mestra do cofre</label>
+      <input type="password" id="cofreNova" autocomplete="new-password" placeholder="mínimo de 8 caracteres">
+    </div>
+    <div class="cofre-campo">
+      <label for="cofreNova2">Repita a senha-mestra</label>
+      <input type="password" id="cofreNova2" autocomplete="new-password">
+    </div>
+    <div class="cofre-campo">
+      <label for="cofreLoginCriar">Sua senha de login (confirmação)</label>
+      <input type="password" id="cofreLoginCriar" autocomplete="current-password">
+    </div>
+    ${state.cofreErro ? `<div class="error-msg">${escapeHtml(state.cofreErro)}</div>` : ''}
+    <button class="btn btn-primary cofre-btn" id="cofreCriarBtn">Criar cofre</button>
+  </div>`;
+}
+
+function cofreDestrancarTemplate(){
+  return `
+  <div class="cofre-portao">
+    <div class="cofre-cadeado">${icon('info',26)}</div>
+    <h2>Cofre trancado</h2>
+    <p class="cofre-sub">Para abrir, confirme que é você e informe a senha-mestra do cofre.</p>
+    <div class="cofre-campo">
+      <label for="cofreLogin">Sua senha de login</label>
+      <input type="password" id="cofreLogin" autocomplete="current-password" placeholder="a mesma que você usa para entrar">
+    </div>
+    <div class="cofre-campo">
+      <label for="cofreMestra">Senha-mestra do cofre</label>
+      <input type="password" id="cofreMestra" autocomplete="off">
+    </div>
+    ${state.cofreErro ? `<div class="error-msg">${escapeHtml(state.cofreErro)}</div>` : ''}
+    <button class="btn btn-primary cofre-btn" id="cofreAbrirBtn">Destrancar</button>
+    <div class="cofre-rodape">O cofre tranca sozinho depois de 5 minutos parado, ao sair da aba e sempre que a página é recarregada.</div>
+  </div>`;
+}
+
+function cofreListaTemplate(){
+  const itens = cofreItensFiltrados();
+  const total = (state.cofreItens||[]).length;
+  const usadas = {};
+  (state.cofreItens||[]).forEach(i=>{ usadas[i.categoria] = (usadas[i.categoria]||0)+1; });
+  const cats = COFRE_CATEGORIAS.filter(c=>usadas[c.key]);
+  return `
+    <div class="cofre-barra">
+      <div class="cofre-barra-info">
+        ${icon('check',16)}
+        <div><b>Cofre aberto</b><span>${total} senha(s) guardada(s) · tranca sozinho em 5 min parado</span></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" id="cofreImportarBtn">${icon('upload',14)} Importar planilha</button>
+        <input type="file" id="cofreImportarInput" accept=".xlsx,.xls" style="display:none;">
+        <button class="btn btn-ghost btn-sm" id="cofreLogBtn">${icon('history',14)} Quem acessou</button>
+        <button class="btn btn-ghost btn-sm" id="cofreTrancarBtn">${icon('logout',14)} Trancar agora</button>
+        <button class="btn btn-primary btn-sm" id="cofreNovoBtn">${icon('plus',15)} Nova senha</button>
+      </div>
+    </div>
+    <div class="toolbar" style="margin-top:0;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div class="sub-search-box ${state.cofreBusca?'filled':''}" style="width:320px;">
+          ${icon('search',18)}
+          <input type="text" id="cofreBuscaInput" placeholder="Buscar serviço, usuário ou link..." value="${escapeHtml(state.cofreBusca||'')}">
+        </div>
+        <span class="mono" style="font-size:12.3px;color:var(--text-400);">${itens.length} de ${total}</span>
+      </div>
+    </div>
+    <div class="chip-row" style="margin-bottom:16px;">
+      <button class="chip ${(!state.cofreCategoria||state.cofreCategoria==='todas')?'active':''}" data-cofre-cat="todas">Todas (${total})</button>
+      ${cats.map(c=>`<button class="chip ${state.cofreCategoria===c.key?'active':''}" data-cofre-cat="${c.key}">${c.label} (${usadas[c.key]})</button>`).join('')}
+    </div>
+    ${itens.length ? `<div class="cofre-lista">${itens.map(i=>cofreItemTemplate(i)).join('')}</div>` : `
+    <div class="empty-state">${icon('search',40)}<h3>${total?'Nada encontrado':'Cofre vazio'}</h3>
+      <p>${total?'Tente outro termo ou outra categoria.':'Use "Importar planilha" para trazer o Gerenciador de Senhas, ou cadastre uma por uma.'}</p></div>`}
+  `;
+}
+
+function cofreItemTemplate(item){
+  const cm = cofreCategoriaMeta(item.categoria);
+  const revelado = state.cofreRevelado===item.id;
+  return `
+  <div class="cofre-item">
+    <div class="cofre-item-cab">
+      <span class="cofre-cat" style="background:${cm.bg};color:${cm.cor};">${cm.label}</span>
+      <div class="cofre-servico">${escapeHtml(item.servico)}</div>
+      ${item.link ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener noreferrer" class="cofre-link" title="${escapeHtml(item.link)}">${icon('link',13)} abrir</a>` : ''}
+      <div class="cofre-item-acoes">
+        <button class="btn btn-icon" data-cofre-edit="${item.id}" title="Editar">${icon('edit',13)}</button>
+        <button class="btn btn-icon" data-cofre-del="${item.id}" title="Excluir" style="color:var(--red);border-color:#f1c9c9;">${icon('trash',13)}</button>
+      </div>
+    </div>
+    <div class="cofre-campos">
+      <div class="cofre-par">
+        <span class="cofre-rot">Usuário</span>
+        <span class="cofre-val">${escapeHtml(item.usuario||'—')}</span>
+        ${item.usuario?`<button class="btn btn-icon btn-xs" data-cofre-copia-user="${item.id}" title="Copiar usuário">${icon('file',12)}</button>`:''}
+      </div>
+      <div class="cofre-par">
+        <span class="cofre-rot">Senha</span>
+        ${item.senha ? `
+        <span class="cofre-val cofre-senha ${revelado?'aberta':''}">${revelado?escapeHtml(item.senha):'••••••••••'}</span>
+        <button class="btn btn-icon btn-xs" data-cofre-ver="${item.id}" title="${revelado?'Esconder':'Mostrar por 20 segundos'}">${icon('eye',12)}</button>
+        <button class="btn btn-icon btn-xs" data-cofre-copia-senha="${item.id}" title="Copiar senha">${icon('file',12)}</button>`
+        : `<span class="cofre-val" style="color:var(--text-400);font-weight:500;">sem senha cadastrada</span>`}
+      </div>
+      ${item.atualizadaEm?`<div class="cofre-par"><span class="cofre-rot">Atualizada</span><span class="cofre-val mono">${escapeHtml(item.atualizadaEm)}</span></div>`:''}
+    </div>
+    ${item.observacoes?`<div class="cofre-obs">${icon('edit',11)} ${escapeHtml(item.observacoes)}</div>`:''}
+  </div>`;
+}
+
+/* ---------- modal de item ---------- */
+function openCofreItemModal(existing){
+  const ehEdicao = !!existing;
+  const html = `
+  <div class="modal-backdrop" id="cofreItemBackdrop">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <h3>${ehEdicao?'Editar senha':'Nova senha'}</h3>
+        <button class="modal-close" id="cofreItemClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        <form id="cofreItemForm" autocomplete="off">
+          <div class="field">
+            <label for="ciServico">Serviço / Plataforma</label>
+            <input type="text" id="ciServico" value="${existing?escapeHtml(existing.servico||''):''}" required>
+          </div>
+          <div class="field">
+            <label for="ciCategoria">Categoria</label>
+            <select id="ciCategoria">
+              ${COFRE_CATEGORIAS.map(c=>`<option value="${c.key}" ${(existing?existing.categoria:'outros')===c.key?'selected':''}>${c.label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="field">
+            <label for="ciUsuario">Usuário / E-mail</label>
+            <input type="text" id="ciUsuario" value="${existing?escapeHtml(existing.usuario||''):''}" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="ciSenha">Senha</label>
+            <input type="text" id="ciSenha" value="${existing?escapeHtml(existing.senha||''):''}" autocomplete="off" placeholder="pode ficar em branco">
+          </div>
+          <div class="field">
+            <label for="ciLink">Link de acesso</label>
+            <input type="text" id="ciLink" value="${existing?escapeHtml(existing.link||''):''}" placeholder="https://..." autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="ciObs">Observações</label>
+            <textarea id="ciObs" placeholder="Qualquer detalhe útil (2º fator, quem usa, etc.)">${existing?escapeHtml(existing.observacoes||''):''}</textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-ghost" id="cofreItemCancel">Cancelar</button>
+        <button class="btn btn-primary" id="cofreItemSave">${ehEdicao?'Salvar':'Cadastrar'}</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('modalRoot').innerHTML = html;
+  const close = ()=>{ document.getElementById('modalRoot').innerHTML=''; };
+  document.getElementById('cofreItemClose').addEventListener('click', close);
+  document.getElementById('cofreItemCancel').addEventListener('click', close);
+  document.getElementById('cofreItemBackdrop').addEventListener('click', e=>{ if(e.target.id==='cofreItemBackdrop') close(); });
+  document.getElementById('cofreItemSave').addEventListener('click', async ()=>{
+    const servico = document.getElementById('ciServico').value.trim();
+    const senha = document.getElementById('ciSenha').value;
+    if(!servico){ toast('Preencha ao menos o serviço.', 'err'); return; }
+    const dados = {
+      servico,
+      categoria: document.getElementById('ciCategoria').value,
+      usuario: document.getElementById('ciUsuario').value.trim(),
+      senha,
+      link: document.getElementById('ciLink').value.trim(),
+      observacoes: document.getElementById('ciObs').value.trim(),
+      atualizadaEm: formatDateBR(todayStr()),
+    };
+    if(ehEdicao){ Object.assign(existing, dados); }
+    else { state.cofreItens.push(Object.assign({id: uid('cf')}, dados)); }
+    cofreMarcarAtividade();
+    await cofreSalvarItens();
+    await cofreRegistrar(ehEdicao?'editou uma senha':'cadastrou uma senha', servico);
+    toast(ehEdicao?'Senha atualizada.':'Senha guardada no cofre.');
+    close();
+    render();
+  });
+}
+
+/* ---------- registro de acessos ---------- */
+async function openCofreLogModal(){
+  const linhas = (state.cofreLog||[]).slice().reverse();
+  for(const l of linhas){
+    if(l.detalheCif && state.cofreChave){
+      try{ l.detalhe = await cofreDecifrar(state.cofreChave, l.detalheCif); }
+      catch(e){ l.detalhe = ''; }
+    }
+  }
+  const html = `
+  <div class="modal-backdrop" id="cofreLogBackdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h3>Quem acessou o cofre</h3>
+        <button class="modal-close" id="cofreLogClose">${icon('x',18)}</button>
+      </div>
+      <div class="modal-body">
+        <div class="hint-text" style="margin-top:0;">O registro guarda quem fez o quê e quando. As senhas em si nunca aparecem aqui.</div>
+        ${linhas.length ? `<div class="table-wrap" style="margin-top:12px;"><table>
+          <thead><tr><th>Quando</th><th>Quem</th><th>O que fez</th></tr></thead>
+          <tbody>${linhas.map(l=>`<tr>
+            <td class="mono" style="white-space:nowrap;">${escapeHtml(formatDateBR(l.data))} ${escapeHtml(l.hora||'')}</td>
+            <td>${escapeHtml(l.porNome||'—')}</td>
+            <td>${escapeHtml(l.acao)}${l.detalhe?` <span style="color:var(--text-400);">· ${escapeHtml(l.detalhe)}</span>`:''}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : `<div class="empty-state">${icon('history',34)}<h3>Nenhum acesso registrado ainda</h3></div>`}
+      </div>
+      <div class="modal-foot"><button class="btn btn-primary" id="cofreLogOk">Fechar</button></div>
+    </div>
+  </div>`;
+  document.getElementById('modalRoot').innerHTML = html;
+  const close = ()=>{ document.getElementById('modalRoot').innerHTML=''; };
+  document.getElementById('cofreLogClose').addEventListener('click', close);
+  document.getElementById('cofreLogOk').addEventListener('click', close);
+  document.getElementById('cofreLogBackdrop').addEventListener('click', e=>{ if(e.target.id==='cofreLogBackdrop') close(); });
+}
+
+/* ---------- copiar ---------- */
+async function cofreCopiar(texto, rotulo){
+  cofreMarcarAtividade();
+  try{
+    await navigator.clipboard.writeText(texto);
+    toast(rotulo + ' copiado(a).');
+  }catch(e){
+    // navegador sem permissão de área de transferência — plano B
+    const ta = document.createElement('textarea');
+    ta.value = texto; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast(rotulo + ' copiado(a).'); }
+    catch(e2){ toast('Não consegui copiar — use o olho para ver e copie à mão.', 'err'); }
+    ta.remove();
+  }
+}
+
+/* ---------- importar a planilha do Gerenciador de Senhas ---------- */
+// A planilha tem duas linhas de título antes do cabeçalho, por isso range:2.
+function cofreLerPlanilha(arrayBuffer){
+  const wb = XLSX.read(arrayBuffer, {type:'array'});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const linhas = XLSX.utils.sheet_to_json(ws, {range:2, defval:''});
+  const achaCampo = (linha, ...pedacos)=>{
+    const chave = Object.keys(linha).find(k=>{
+      const n = k.normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
+      return pedacos.some(p=>n.includes(p));
+    });
+    return chave ? String(linha[chave]).trim() : '';
+  };
+  const out = [];
+  linhas.forEach(l=>{
+    const servico = achaCampo(l, 'servico', 'plataforma');
+    const senha = achaCampo(l, 'senha');
+    // linha sem senha ainda vale: guarda o serviço, o usuário e o link
+    if(!servico) return;
+    out.push({
+      servico,
+      categoria: cofreCategoriaDeTexto(achaCampo(l, 'categoria')),
+      usuario: achaCampo(l, 'usuario', 'e-mail', 'email'),
+      senha,
+      link: achaCampo(l, 'link'),
+      observacoes: achaCampo(l, 'observa'),
+      atualizadaEm: achaCampo(l, 'atualiza'),
+    });
+  });
+  return out;
+}
+
+/* ---------- eventos da aba ---------- */
+function attachSenhasEvents(){
+  // --- criar o cofre ---
+  const criarBtn = document.getElementById('cofreCriarBtn');
+  if(criarBtn){
+    const criar = async ()=>{
+      const nova = document.getElementById('cofreNova').value;
+      const nova2 = document.getElementById('cofreNova2').value;
+      const login = document.getElementById('cofreLoginCriar').value;
+      state.cofreErro = '';
+      if(login !== state.currentUser.password){ state.cofreErro = 'Sua senha de login não confere.'; render(); return; }
+      if(nova.length < 8){ state.cofreErro = 'A senha-mestra precisa ter ao menos 8 caracteres.'; render(); return; }
+      if(nova !== nova2){ state.cofreErro = 'As duas senhas-mestras não são iguais.'; render(); return; }
+      criarBtn.disabled = true; criarBtn.textContent = 'Criando...';
+      try{ await cofreCriar(nova); toast('Cofre criado. Guarde a senha-mestra em local seguro.'); }
+      catch(e){ state.cofreErro = 'Não consegui criar o cofre: ' + e.message; }
+      render();
+    };
+    criarBtn.addEventListener('click', criar);
+    ['cofreNova','cofreNova2','cofreLoginCriar'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); criar(); } });
+    });
+  }
+
+  // --- destrancar ---
+  const abrirBtn = document.getElementById('cofreAbrirBtn');
+  if(abrirBtn){
+    const abrir = async ()=>{
+      const login = document.getElementById('cofreLogin').value;
+      const mestra = document.getElementById('cofreMestra').value;
+      state.cofreErro = '';
+      if(login !== state.currentUser.password){
+        state.cofreErro = 'Sua senha de login não confere.';
+        await cofreRegistrar('tentativa recusada', 'senha de login errada');
+        render(); return;
+      }
+      abrirBtn.disabled = true; abrirBtn.textContent = 'Abrindo...';
+      let itens = null;
+      try{ itens = await cofreDestrancar(mestra); }
+      catch(e){ itens = null; }
+      if(itens === null){
+        state.cofreErro = 'Senha-mestra do cofre incorreta.';
+        await cofreRegistrar('tentativa recusada', 'senha-mestra errada');
+        render(); return;
+      }
+      await cofreRegistrar('abriu o cofre');
+      render();
+    };
+    abrirBtn.addEventListener('click', abrir);
+    ['cofreLogin','cofreMestra'].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); abrir(); } });
+    });
+  }
+
+  // --- lista ---
+  const busca = document.getElementById('cofreBuscaInput');
+  if(busca) busca.addEventListener('input', ()=>{
+    cofreMarcarAtividade();
+    state.cofreBusca = busca.value;
+    const pos = busca.selectionStart;
+    render();
+    const novo = document.getElementById('cofreBuscaInput');
+    if(novo){ novo.focus(); novo.setSelectionRange(pos, pos); }
+  });
+  document.querySelectorAll('[data-cofre-cat]').forEach(b=>{
+    b.addEventListener('click', ()=>{ cofreMarcarAtividade(); state.cofreCategoria = b.dataset.cofreCat; render(); });
+  });
+  const trancarBtn = document.getElementById('cofreTrancarBtn');
+  if(trancarBtn) trancarBtn.addEventListener('click', async ()=>{
+    await cofreRegistrar('trancou o cofre');
+    cofreTrancar('Cofre trancado.');
+    render();
+  });
+  const logBtn = document.getElementById('cofreLogBtn');
+  if(logBtn) logBtn.addEventListener('click', ()=>{ cofreMarcarAtividade(); openCofreLogModal(); });
+  const novoBtn = document.getElementById('cofreNovoBtn');
+  if(novoBtn) novoBtn.addEventListener('click', ()=>{ cofreMarcarAtividade(); openCofreItemModal(null); });
+
+  document.querySelectorAll('[data-cofre-ver]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      cofreMarcarAtividade();
+      const id = b.dataset.cofreVer;
+      if(state.cofreRevelado===id){ state.cofreRevelado = null; render(); return; }
+      state.cofreRevelado = id;
+      const item = (state.cofreItens||[]).find(i=>i.id===id);
+      await cofreRegistrar('revelou uma senha', item?item.servico:'');
+      render();
+      setTimeout(()=>{
+        if(state.cofreRevelado===id){ state.cofreRevelado = null; render(); }
+      }, COFRE_REVELA_MS);
+    });
+  });
+  document.querySelectorAll('[data-cofre-copia-user]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const item = (state.cofreItens||[]).find(i=>i.id===b.dataset.cofreCopiaUser);
+      if(item) cofreCopiar(item.usuario||'', 'Usuário');
+    });
+  });
+  document.querySelectorAll('[data-cofre-copia-senha]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const item = (state.cofreItens||[]).find(i=>i.id===b.dataset.cofreCopiaSenha);
+      if(!item) return;
+      await cofreCopiar(item.senha||'', 'Senha');
+      await cofreRegistrar('copiou uma senha', item.servico);
+    });
+  });
+  document.querySelectorAll('[data-cofre-edit]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const item = (state.cofreItens||[]).find(i=>i.id===b.dataset.cofreEdit);
+      if(item){ cofreMarcarAtividade(); openCofreItemModal(item); }
+    });
+  });
+  document.querySelectorAll('[data-cofre-del]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const item = (state.cofreItens||[]).find(i=>i.id===b.dataset.cofreDel);
+      if(!item) return;
+      cofreMarcarAtividade();
+      openConfirmModal(`Excluir a senha de "${item.servico}" do cofre? Isso não pode ser desfeito.`, async ()=>{
+        state.cofreItens = state.cofreItens.filter(i=>i.id!==item.id);
+        await cofreSalvarItens();
+        await cofreRegistrar('excluiu uma senha', item.servico);
+        toast('Senha excluída do cofre.');
+        render();
+      });
+    });
+  });
+
+  // --- importar a planilha ---
+  const impBtn = document.getElementById('cofreImportarBtn');
+  const impInput = document.getElementById('cofreImportarInput');
+  if(impBtn && impInput){
+    impBtn.addEventListener('click', ()=>{ cofreMarcarAtividade(); impInput.click(); });
+    impInput.addEventListener('change', (ev)=>{
+      const file = ev.target.files && ev.target.files[0];
+      if(!file) return;
+      if(!window.XLSX){ toast('Biblioteca de Excel não carregou — verifique sua internet.', 'err'); return; }
+      const reader = new FileReader();
+      reader.onload = async (e)=>{
+        let lidos = [];
+        try{ lidos = cofreLerPlanilha(new Uint8Array(e.target.result)); }
+        catch(err){ toast('Não consegui ler a planilha: ' + err.message, 'err'); return; }
+        if(!lidos.length){ toast('Nenhuma senha encontrada na planilha.', 'err'); return; }
+        // não duplica o que já está no cofre (mesmo serviço + mesmo usuário)
+        const jaTem = new Set((state.cofreItens||[]).map(i=>(i.servico+'|'+i.usuario).toLowerCase()));
+        const novos = lidos.filter(i=>!jaTem.has((i.servico+'|'+i.usuario).toLowerCase()));
+        const repetidos = lidos.length - novos.length;
+        openConfirmModal(
+          `Encontrei ${lidos.length} senha(s) na planilha. ${novos.length} serão adicionadas${repetidos?` e ${repetidos} já estão no cofre (serão ignoradas)`:''}. Importar?`,
+          async ()=>{
+            novos.forEach(i=>state.cofreItens.push(Object.assign({id: uid('cf')}, i)));
+            cofreMarcarAtividade();
+            await cofreSalvarItens();
+            await cofreRegistrar('importou a planilha', novos.length + ' senha(s)');
+            toast(novos.length + ' senha(s) importada(s) para o cofre.');
+            render();
+          });
+      };
+      reader.readAsArrayBuffer(file);
+      ev.target.value = '';
+    });
+  }
 }
 
 /* ================= BOOTSTRAP ================= */
