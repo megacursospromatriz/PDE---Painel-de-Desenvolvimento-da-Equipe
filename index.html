@@ -773,6 +773,7 @@
   .situacao-ativo{background:var(--green-bg);color:#157a4a;}
   .situacao-inativo{background:#fbe7e7;color:#b91c1c;}
   tr.user-inativo td{opacity:.62;}
+  tr.sub-total-row td{background:#e8edfb;color:#1a3aa8;font-weight:800;font-size:16px;border-top:2px solid #2148c9;padding-top:16px;padding-bottom:16px;}
   tr.user-inativo td:last-child, tr.user-inativo .situacao-tag{opacity:1;}
 
   .backup-note{
@@ -1089,7 +1090,7 @@ const NEWLY_ADDED_TABS = ['w2h','notices','chat'];
 function defaultTabsForRole(role){ return role==='master' ? DEFAULT_TABS_MASTER.slice() : DEFAULT_TABS_USER.slice(); }
 // Abas retiradas do painel (16/11/2026). O código e os dados já gravados
 // continuam; para trazer de volta, basta tirar a chave desta lista.
-const REMOVED_TABS = ['w2h','repasse'];
+const REMOVED_TABS = ['w2h','repasse','implantacao'];
 function userTabs(user){
   const tabs = (user.tabs && user.tabs.length) ? user.tabs : defaultTabsForRole(user.role);
   return tabs.filter(k=>!REMOVED_TABS.includes(k));
@@ -5097,6 +5098,11 @@ function subscriptionsFiltered(quickOverride){
   return list;
 }
 function subQuickCount(quick){ return subscriptionsFiltered(quick).length; }
+// Nome da aba ativa, para a linha de total no fim da tabela.
+function subQuickLabel(quick){
+  if(quick && quick.startsWith('ciclo_')) return subCycleMeta(quick.slice(6)).label;
+  return ({mes_atual:'Mês Atual', ativas:'Ativas', vencidas:'Vencidas', pagas:'Pagas', canceladas:'Canceladas', proximas:'Vencendo em 30 dias'})[quick] || 'Todas';
+}
 function subscriptionsTemplate(){
   const list = subscriptionsFiltered();
   const f = state.subFilter;
@@ -5210,6 +5216,13 @@ function subscriptionsTemplate(){
             </tr>`;
           }).join('')}
         </tbody>
+        <tfoot>
+          <tr class="sub-total-row">
+            <td colspan="3">Total ${escapeHtml(subQuickLabel(state.subQuickFilter))} · ${list.length} assinatura(s)</td>
+            <td class="mono">${fmtBRL(list.reduce((t,s)=>t+(Number(s.valor)||0),0))}</td>
+            <td colspan="5"></td>
+          </tr>
+        </tfoot>
       </table>
     </div>` : `<div class="empty-state">${icon('financeiro',40)}<h3>Nenhuma assinatura encontrada</h3><p>Ajuste os filtros ou clique em "Nova assinatura" para começar.</p></div>`}
   `;
