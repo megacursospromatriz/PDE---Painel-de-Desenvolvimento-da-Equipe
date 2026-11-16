@@ -1087,7 +1087,13 @@ const DEFAULT_TABS_MASTER = ALL_TABS.map(t=>t.key).filter(k=>!RESTRICTED_BY_DEFA
 // "encaixadas" em quem já tinha uma lista salva (ver migração em loadData).
 const NEWLY_ADDED_TABS = ['w2h','notices','chat'];
 function defaultTabsForRole(role){ return role==='master' ? DEFAULT_TABS_MASTER.slice() : DEFAULT_TABS_USER.slice(); }
-function userTabs(user){ return (user.tabs && user.tabs.length) ? user.tabs : defaultTabsForRole(user.role); }
+// Abas retiradas do painel (16/11/2026). O código e os dados já gravados
+// continuam; para trazer de volta, basta tirar a chave desta lista.
+const REMOVED_TABS = ['w2h','repasse'];
+function userTabs(user){
+  const tabs = (user.tabs && user.tabs.length) ? user.tabs : defaultTabsForRole(user.role);
+  return tabs.filter(k=>!REMOVED_TABS.includes(k));
+}
 
 /* ---------------- privacidade da agenda entre masters ----------------
    Por padrão, um master NÃO pode ver a agenda de outras pessoas — isso
@@ -1097,7 +1103,7 @@ function userTabs(user){ return (user.tabs && user.tabs.length) ? user.tabs : de
    mantê-la privada. */
 function canBrowseOthersAgenda(u){ return u.role==='master' && !!u.canViewOthersAgenda; }
 function visibleColleaguesFor(viewer){
-  return state.users.filter(x=>{
+  return usersAtivos().filter(x=>{
     if(x.id===viewer.id) return false;
     if(x.role==='master' && x.agendaHiddenFromOthers) return false;
     return true;
@@ -1320,6 +1326,9 @@ function monthLabelPT(monthStr){ const {year,month} = monthMeta(monthStr); retur
 function userById(id){ return state.users.find(u=>u.id===id); }
 // Cadastro antigo não tem o campo: quem não foi marcado como inativo é ativo.
 function userAtivo(u){ return !u || u.ativo!==false; }
+// Só quem está ativo aparece nas listas do sistema (filtros, chat, atribuição,
+// visão geral...). Inativos continuam só em Equipe, para poder reativar.
+function usersAtivos(){ return state.users.filter(userAtivo); }
 
 /* ---------------- janela de preenchimento do 5W2H (dias 20 a 25) ---------------- */
 const W2H_OPEN_DAY = 20;
@@ -1869,6 +1878,7 @@ const notifiedW2HDays = new Set();
 function checkW2HReminders(){
   const u = state.currentUser;
   if(!u || u.role==='master') return;
+  if(REMOVED_TABS.includes('w2h')) return; // aba 5W2H retirada: sem lembrete
   const now = new Date();
   const day = now.getDate();
   if(day < W2H_OPEN_DAY || day > (W2H_DUE_DAY-1)) return; // alertas somente nos dias 20 a 24
@@ -2069,7 +2079,7 @@ function shellTemplate(){
   const myUnreadNotices = notificationsForCurrentUser().filter(n=>!n.read).length;
   const myUnreadW2H = notificationsForCurrentUser().filter(n=>!n.read && n.type==='w2h').length;
   const myUnreadRepasse = notificationsForCurrentUser().filter(n=>!n.read && n.type==='repasse').length;
-  const myUnreadChats = state.users.filter(x=>x.id!==u.id).reduce((sum,x)=>sum+unreadCountFrom(x.id),0);
+  const myUnreadChats = usersAtivos().filter(x=>x.id!==u.id).reduce((sum,x)=>sum+unreadCountFrom(x.id),0);
   const myAssignedOpen = assignedMyOpenCount();
   const allNavItems = [
     {key:'agenda', label:'Compromissos', icon:'clipboard', badge:myInvites.length},
@@ -2409,7 +2419,7 @@ function openTaskModal(existing, presetDate, presetOwnerId){
   // (quem está editando pode ser uma pessoa diferente, ex: um master mexendo
   // em algo que cadastrou para outro colaborador).
   const excludeFromParticipants = isEdit ? existing.ownerId : (presetOwnerId || u.id);
-  const otherUsers = state.users.filter(x=>x.id!==excludeFromParticipants);
+  const otherUsers = usersAtivos().filter(x=>x.id!==excludeFromParticipants);
   const selectedParticipants = existing ? existing.participants.map(p=>p.userId) : [];
   const isCustomType = existing && existing.type && !TASK_TYPES.includes(existing.type);
 
@@ -2436,7 +2446,7 @@ function openTaskModal(existing, presetDate, presetOwnerId){
               <label for="tForOther">Para quem é este compromisso?</label>
               <select id="tForOther">
                 <option value="">Selecione...</option>
-                ${state.users.filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('')}
+                ${usersAtivos().filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('')}
               </select>
               <div class="hint-text">Você continua aparecendo como quem criou — mas o compromisso vai para a agenda dessa pessoa, e não para a sua.</div>
             </div>
@@ -2511,7 +2521,7 @@ function openTaskModal(existing, presetDate, presetOwnerId){
     if(forMeCheckbox && !forMeCheckbox.checked){
       excludeId = forOtherSelect.value || null; // ninguém excluído até escolherem alguém
     }
-    const freshOtherUsers = state.users.filter(x=>x.id!==excludeId);
+    const freshOtherUsers = usersAtivos().filter(x=>x.id!==excludeId);
     const selfShown = freshOtherUsers.some(x=>x.id===u.id);
     // Quando o compromisso é para outra pessoa, meu nome entra pré-marcado
     // (presumindo que eu também vou participar) — mas respeita se eu já desmarquei manualmente.
@@ -3067,7 +3077,7 @@ function openDailyTaskModal(existing, presetAssignedTo){
           <div class="field">
             <label for="dtUser">Colaborador</label>
             <select id="dtUser">
-              ${[u, ...state.users.filter(x=>x.id!==u.id)].map(x=>`<option value="${x.id}" ${(existing?existing.assignedTo===x.id:(presetAssignedTo?presetAssignedTo===x.id:x.id===u.id))?'selected':''}>${escapeHtml(x.name)}${x.id===u.id?' (você)':''}</option>`).join('')}
+              ${[u, ...usersAtivos().filter(x=>x.id!==u.id)].map(x=>`<option value="${x.id}" ${(existing?existing.assignedTo===x.id:(presetAssignedTo?presetAssignedTo===x.id:x.id===u.id))?'selected':''}>${escapeHtml(x.name)}${x.id===u.id?' (você)':''}</option>`).join('')}
             </select>
           </div>` : `
           <div class="field">
@@ -3497,7 +3507,7 @@ function openDayPopoverModal(dateStr){
 
 /* ================= AGENDA USUÁRIO (master gerencia a agenda de um usuário) ================= */
 function userAgendaTemplate(){
-  const targetableUsers = state.users.filter(x=>x.role==='user');
+  const targetableUsers = usersAtivos().filter(x=>x.role==='user');
   if(!targetableUsers.length){
     return `<div class="empty-state">${icon('users',40)}<h3>Nenhum usuário cadastrado</h3><p>Cadastre operadores em "Equipe" para gerenciar a agenda deles aqui.</p></div>`;
   }
@@ -3701,7 +3711,7 @@ function checklistTemplate(){
           <option value="todos" ${(!state.checklistFilterUser||state.checklistFilterUser==='todos')?'selected':''}>Todos os colaboradores</option>
           <option value="${u.id}" ${state.checklistFilterUser===u.id?'selected':''}>${escapeHtml(u.name)} (você)</option>
           <option value="criadas_por_mim" ${state.checklistFilterUser==='criadas_por_mim'?'selected':''}>Criadas por mim</option>
-          ${state.users.filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}" ${state.checklistFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
+          ${usersAtivos().filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}" ${state.checklistFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
         </select>` : ''}
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
@@ -3717,7 +3727,7 @@ function checklistTemplate(){
       </select>
       <input type="text" id="clNewText" placeholder="Adicionar uma tarefa..." class="checklist-add-input">
       <input type="text" id="clNewResp" placeholder="Responsável(is)" list="clRespList" style="width:170px;padding:10px 13px;border:1.5px solid var(--line);border-radius:9px;font-size:15.1px;">
-      <datalist id="clRespList">${state.users.map(x=>`<option value="${escapeHtml(x.name)}">`).join('')}</datalist>
+      <datalist id="clRespList">${usersAtivos().map(x=>`<option value="${escapeHtml(x.name)}">`).join('')}</datalist>
       <select id="clNewPriority" class="checklist-add-select">
         ${CHECKLIST_PRIORITY.map(p=>`<option value="${p.key}" ${p.key==='media'?'selected':''}>${p.label}</option>`).join('')}
       </select>
@@ -3859,7 +3869,7 @@ function openChecklistItemModal(existing){
           <div class="field">
             <label>Responsáveis</label>
             <div class="check-list" id="clEditRespList" style="max-height:170px;">
-              ${state.users.length ? state.users.map(x=>`
+              ${usersAtivos().length ? usersAtivos().map(x=>`
                 <label class="check-item">
                   <input type="checkbox" value="${escapeHtml(x.name)}" ${registeredMatches.some(m=>m.id===x.id)?'checked':''}>
                   <span class="avatar" style="width:22px;height:22px;font-size:9.5px;">${avatarInner(x)}</span>
@@ -4146,7 +4156,7 @@ function assignedTemplate(){
           <option value="todos" ${state.assignedFilterUser==='todos'?'selected':''}>Todos os colaboradores</option>
           <option value="${u.id}" ${state.assignedFilterUser===u.id?'selected':''}>${escapeHtml(u.name)} (você)</option>
           <option value="por_mim" ${state.assignedFilterUser==='por_mim'?'selected':''}>Atribuídas por mim</option>
-          ${state.users.filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}" ${state.assignedFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
+          ${usersAtivos().filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}" ${state.assignedFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
         </select>` : ''}
         <span class="mono" style="font-size:12.3px;color:var(--text-400);">${rows.length} tarefa(s) · ${grupos.length} pessoa(s)</span>
       </div>
@@ -4326,7 +4336,7 @@ function w2hTemplate(){
         ${isMaster ? `
         <select id="w2hFilterCollab" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;font-weight:600;">
           <option value="todos">Todos os colaboradores</option>
-          ${state.users.map(x=>`<option value="${x.id}" ${f.collaborator===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
+          ${usersAtivos().map(x=>`<option value="${x.id}" ${f.collaborator===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
         </select>
         <select id="w2hFilterState" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;font-weight:600;">
           <option value="todos">Todos os estados</option>
@@ -4430,7 +4440,7 @@ function openW2HModal(existing, presetEmployeeId, presetMonth, presetYear){
               ${isMaster ? `
               <select id="w2hEmployee" ${!isNew?'disabled':''}>
                 <option value="">Selecione...</option>
-                ${state.users.map(x=>`<option value="${x.id}" ${employeeId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
+                ${usersAtivos().map(x=>`<option value="${x.id}" ${employeeId===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
               </select>` : `<input type="text" value="${escapeHtml(u.name)}" disabled>`}
             </div>
             <div class="field">
@@ -4591,7 +4601,7 @@ function historyTemplate(){
       ${isMaster ? `
       <select id="historyFilterUser" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;font-weight:600;">
         <option value="todos" ${state.historyFilterUser==='todos'?'selected':''}>Todos os usuários</option>
-        ${state.users.map(x=>`<option value="${x.id}" ${state.historyFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
+        ${usersAtivos().map(x=>`<option value="${x.id}" ${state.historyFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
       </select>` : ''}
     </div>
     ${entries.length ? `
@@ -4652,7 +4662,7 @@ function repasseTemplate(){
         ${isMaster ? `
         <select id="repasseFilterUser" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;font-weight:600;">
           <option value="todos">Todos os colaboradores</option>
-          ${state.users.filter(x=>x.role==='user').map(x=>`<option value="${x.id}" ${state.repasseFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
+          ${usersAtivos().filter(x=>x.role==='user').map(x=>`<option value="${x.id}" ${state.repasseFilterUser===x.id?'selected':''}>${escapeHtml(x.name)}</option>`).join('')}
         </select>` : ''}
         <select id="repasseFilterMonth" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;font-weight:600;">
           ${MONTH_NAMES_PT.map((m,i)=>`<option value="${i+1}" ${state.repasseFilterMonth===i+1?'selected':''}>${m}</option>`).join('')}
@@ -4684,7 +4694,7 @@ function repasseTemplate(){
   `;
 }
 function openRepasseLaunchModal(){
-  const collaborators = state.users.filter(x=>x.role==='user');
+  const collaborators = usersAtivos().filter(x=>x.role==='user');
   const now = new Date();
   const html = `
   <div class="modal-backdrop" id="repasseNewBackdrop">
@@ -4883,6 +4893,8 @@ const SUB_CYCLES = [
   {key:'outra', label:'Outra periodicidade', days:null, divisor:null},
 ];
 function subCycleMeta(key){ return SUB_CYCLES.find(c=>c.key===key) || SUB_CYCLES[0]; }
+// Ciclos que ganham aba própria ao lado de "Vencendo em 30 dias".
+const SUB_QUICK_CICLOS = SUB_CYCLES.filter(c=>['mensal','trimestral','anual','unico'].includes(c.key));
 const SUB_STATUS = [
   {key:'ativa', label:'Ativa', color:'#1f8f5f', bg:'#e4f7ee'},
   {key:'pendente', label:'Vence em breve', color:'#c9821f', bg:'#fdf1de'},
@@ -4979,8 +4991,9 @@ function subscriptionsSummary(allSubs, dateFilter){
   // "A pagar no mês" = vence neste mês e AINDA não foi paga neste mês. Sem o
   // segundo teste, uma assinatura sem ciclo recorrente (pagamento único)
   // entrava ao mesmo tempo em "a pagar" e em "pago" e dobrava o custo mensal.
+  // Cancelada não entra: depois de cancelar não há mais cobrança a pagar.
   const detAPagarMes = allSubs
-    .filter(s=>s.dataVencimento && s.dataVencimento.startsWith(curMonthPrefix) && !pagasNesteMes.has(s.id))
+    .filter(s=>s.dataVencimento && s.dataVencimento.startsWith(curMonthPrefix) && !pagasNesteMes.has(s.id) && subEffectiveStatus(s)!=='cancelada')
     .map(s=>({sub:s, subId:s.id, data:s.dataVencimento, valor:Number(s.valor)||0, tipo:'A pagar'}));
   const aPagarMes = detAPagarMes.reduce((sum,r)=>sum+r.valor, 0);
   const custoMensal = aPagarMes + pagoMes;
@@ -5054,6 +5067,7 @@ function subscriptionsFiltered(quickOverride){
     const curMonthPrefix = todayStr().slice(0,7);
     list = list.filter(s=>{
       if(!s.dataVencimento) return false;
+      if(subEffectiveStatus(s)==='cancelada') return false; // cancelada não tem mais cobrança
       if(s.dataVencimento.startsWith(curMonthPrefix)) return true; // vence neste mês
       return subEffectiveStatus(s)==='vencida'; // ou atrasada de mês(es) anterior(es) e ainda não paga
     });
@@ -5066,7 +5080,12 @@ function subscriptionsFiltered(quickOverride){
     return s.historicoPagamentos.some(p=> (!f.dataInicio || p.data>=f.dataInicio) && (!f.dataFim || p.data<=f.dataFim));
   });
   if(quick==='canceladas') list = list.filter(s=>subEffectiveStatus(s)==='cancelada');
-  if(quick==='proximas') list = list.filter(s=>{ const d=subDaysUntilRenewal(s); return d!==null && d>=0 && d<=30; });
+  if(quick==='proximas') list = list.filter(s=>{ if(subEffectiveStatus(s)==='cancelada') return false; const d=subDaysUntilRenewal(s); return d!==null && d>=0 && d<=30; });
+  // Abas por ciclo de cobrança. Canceladas ficam só na aba "Canceladas".
+  if(quick && quick.startsWith('ciclo_')){
+    const ciclo = quick.slice(6);
+    list = list.filter(s=>s.ciclo===ciclo && subEffectiveStatus(s)!=='cancelada');
+  }
   const {field, dir} = state.subSort;
   list.sort((a,b)=>{
     let av = field==='proximaRenovacao' ? (subNextRenewal(a)||'') : (a[field]!==undefined?a[field]:'');
@@ -5157,6 +5176,7 @@ function subscriptionsTemplate(){
       <button class="chip ${state.subQuickFilter==='pagas'?'active':''}" data-sub-quick="pagas">Pagas${(f.dataInicio||f.dataFim)?' no período':''} (${subQuickCount('pagas')})</button>
       <button class="chip ${state.subQuickFilter==='canceladas'?'active':''}" data-sub-quick="canceladas">Canceladas (${subQuickCount('canceladas')})</button>
       <button class="chip ${state.subQuickFilter==='proximas'?'active':''}" data-sub-quick="proximas">Vencendo em 30 dias (${subQuickCount('proximas')})</button>
+      ${SUB_QUICK_CICLOS.map(c=>`<button class="chip ${state.subQuickFilter==='ciclo_'+c.key?'active':''}" data-sub-quick="ciclo_${c.key}">${c.label} (${subQuickCount('ciclo_'+c.key)})</button>`).join('')}
     </div>
 
     ${list.length ? `
@@ -5240,7 +5260,7 @@ function openMarkPaidModal(sub){
 }
 function openSubscriptionModal(existing){
   const isEdit = !!existing;
-  const supplierResp = [...new Set(state.users.map(u=>u.name))];
+  const supplierResp = [...new Set(usersAtivos().map(u=>u.name))];
   const html = `
   <div class="modal-backdrop" id="subModalBackdrop">
     <div class="modal">
@@ -6110,7 +6130,7 @@ function openNoticeDetailModal(n){
 /* ================= CHAT ================= */
 function chatTemplate(){
   const u = state.currentUser;
-  const colleagues = state.users.filter(x=>x.id!==u.id)
+  const colleagues = usersAtivos().filter(x=>x.id!==u.id)
     .map(x=>({user:x, last:lastMessageWith(x.id), unread:unreadCountFrom(x.id)}))
     .sort((a,b)=>{
       const at = a.last ? a.last.createdAt : 0, bt = b.last ? b.last.createdAt : 0;
@@ -6511,7 +6531,7 @@ function openImplUnitModal(existing){
 function openImplItemModal(unitId, existing){
   const isEdit = !!existing;
   const marcados = new Set((existing && existing.responsaveis) || []);
-  const usuarios = state.users.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const usuarios = usersAtivos().slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const v = (campo)=> escapeHtml((existing && existing[campo]) || '');
   const html = `
   <div class="modal-backdrop" id="implItemBackdrop">
@@ -7349,11 +7369,11 @@ function attachFinanceiroEvents(){
 
 /* ================= OVERVIEW (master) ================= */
 function overviewTemplate(){
-  let users = state.users.filter(u=>u.role!=='master' || u.id===state.currentUser.id ? true : true);
+  let users = usersAtivos().filter(u=>u.role!=='master' || u.id===state.currentUser.id ? true : true);
   if(state.companyFilter !== 'todas'){
     users = users.filter(u=>userCompanies(u).includes(state.companyFilter));
   }
-  if(!state.users.filter(u=>u.id!==state.currentUser.id).length){
+  if(!usersAtivos().filter(u=>u.id!==state.currentUser.id).length){
     return `<div class="empty-state">${icon('users',40)}<h3>Nenhum colaborador cadastrado ainda</h3><p>Vá até "Equipe" para cadastrar os usuários do grupo.</p></div>`;
   }
   const selected = state.overviewUserId ? userById(state.overviewUserId) : null;
@@ -7716,7 +7736,7 @@ function openUserModal(existing){
           <div class="field">
             <label>Abas com acesso</label>
             <div class="check-list" id="uTabs">
-              ${ALL_TABS.map(t=>{
+              ${ALL_TABS.filter(t=>!REMOVED_TABS.includes(t.key)).map(t=>{
                 const isSelfTeamLock = existing && existing.id===state.currentUser.id && existing.role==='master' && t.key==='team';
                 const checked = existing ? userTabs(existing).includes(t.key) : DEFAULT_TABS_USER.includes(t.key);
                 return `
