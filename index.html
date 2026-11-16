@@ -1228,7 +1228,7 @@ const state = {
   finSubView:'compras',
   finTopView:'compras',
   subscriptions:[],
-  subFilter:{company:'todas', category:'todas', status:'todas', cycle:'todas', search:'', dataInicio:'', dataFim:''},
+  subFilter:{company:'todas', category:'todas', status:'todas', cycle:'todas', search:'', dataInicio:'', dataFim:'', periodoAuto:true},
   subQuickFilter:'mes_atual',
   subSort:{field:'dataVencimento', dir:'asc'},
   finYear: new Date().getFullYear(),
@@ -5044,7 +5044,17 @@ function subscriptionsSummary(allSubs, dateFilter){
 }
 // quickOverride permite contar quantas assinaturas cairiam em cada filtro rápido
 // sem mexer no filtro ativo — é o que alimenta os números das abas.
+// Enquanto a pessoa não mexe nas datas, o período é o mês atual e vira
+// sozinho quando o mês muda.
+function subAplicarPeriodoAuto(){
+  const f = state.subFilter;
+  if(!f.periodoAuto) return;
+  const m = currentMonthStr();
+  f.dataInicio = m+'-01';
+  f.dataFim = ultimoDiaDoMes(m);
+}
 function subscriptionsFiltered(quickOverride){
+  subAplicarPeriodoAuto();
   const quick = (quickOverride===undefined) ? state.subQuickFilter : quickOverride;
   let list = state.subscriptions.slice();
   const f = state.subFilter;
@@ -5058,7 +5068,11 @@ function subscriptionsFiltered(quickOverride){
   // historico -- e junto zerava o filtro rapido "Pagas no periodo".
   if(f.dataInicio || f.dataFim){
     const dentroDoPeriodo = (d)=> !!d && (!f.dataInicio || d>=f.dataInicio) && (!f.dataFim || d<=f.dataFim);
-    list = list.filter(s=> dentroDoPeriodo(s.dataVencimento) || (s.historicoPagamentos||[]).some(p=>dentroDoPeriodo(p.data)) );
+    // Se o período inclui hoje, as contas atrasadas de meses anteriores
+    // continuam aparecendo: elas ainda precisam ser pagas.
+    const incluiHoje = dentroDoPeriodo(todayStr());
+    list = list.filter(s=> dentroDoPeriodo(s.dataVencimento) || (s.historicoPagamentos||[]).some(p=>dentroDoPeriodo(p.data))
+      || (incluiHoje && subEffectiveStatus(s)==='vencida') );
   }
   if(f.search && f.search.trim()){
     const q = f.search.trim().toLowerCase();
@@ -5104,9 +5118,14 @@ function subQuickLabel(quick){
   return ({mes_atual:'Mês Atual', ativas:'Ativas', vencidas:'Vencidas', pagas:'Pagas', canceladas:'Canceladas', proximas:'Vencendo em 30 dias'})[quick] || 'Todas';
 }
 function subscriptionsTemplate(){
+  subAplicarPeriodoAuto();
+  if(state.subQuickFilter==='proximas') state.subQuickFilter = 'vencidas'; // aba "Vencendo em 30 dias" retirada
   const list = subscriptionsFiltered();
   const f = state.subFilter;
-  const subsForSummary = f.company==='todas' ? state.subscriptions : state.subscriptions.filter(s=>s.grupo===f.company);
+  const subsForSummary = state.subscriptions.filter(s=>
+    (f.company==='todas' || s.grupo===f.company) &&
+    (f.category==='todas' || s.categoria===f.category) &&
+    (f.cycle==='todas' || s.ciclo===f.cycle));
   const summary = subscriptionsSummary(subsForSummary, f);
   return `
     <div class="sub-search-top">
@@ -5171,6 +5190,7 @@ function subscriptionsTemplate(){
         <span class="mono" style="font-size:12.9px;color:var(--text-400);">e</span>
         <input type="date" id="subFilterDataFim" value="${f.dataFim||''}" style="padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-size:14.6px;">
         ${(f.dataInicio||f.dataFim) ? `<button class="btn btn-ghost btn-sm" id="subFilterDataClear">${icon('x',13)} Limpar período</button>` : ''}
+        ${!f.periodoAuto ? `<button class="btn btn-ghost btn-sm" id="subFilterMesAtual">${icon('calendarGrid',13)} Voltar ao mês atual</button>` : ''}
       </div>
     </div>
     ${state.subQuickFilter==='mes_atual' ? `<div class="hint-text" style="margin:14px 0 -2px;font-size:14.6px;font-weight:600;color:var(--blue-600);">${icon('calendarGrid',13)} Mostrando ${MONTH_NAMES_PT[new Date().getMonth()]} de ${new Date().getFullYear()} — atualiza sozinho quando o mês virar.</div>` : ''}
@@ -5181,7 +5201,6 @@ function subscriptionsTemplate(){
       <button class="chip ${state.subQuickFilter==='vencidas'?'active':''}" data-sub-quick="vencidas">Vencidas (${subQuickCount('vencidas')})</button>
       <button class="chip ${state.subQuickFilter==='pagas'?'active':''}" data-sub-quick="pagas">Pagas${(f.dataInicio||f.dataFim)?' no período':''} (${subQuickCount('pagas')})</button>
       <button class="chip ${state.subQuickFilter==='canceladas'?'active':''}" data-sub-quick="canceladas">Canceladas (${subQuickCount('canceladas')})</button>
-      <button class="chip ${state.subQuickFilter==='proximas'?'active':''}" data-sub-quick="proximas">Vencendo em 30 dias (${subQuickCount('proximas')})</button>
       ${SUB_QUICK_CICLOS.map(c=>`<button class="chip ${state.subQuickFilter==='ciclo_'+c.key?'active':''}" data-sub-quick="ciclo_${c.key}">${c.label} (${subQuickCount('ciclo_'+c.key)})</button>`).join('')}
     </div>
 
@@ -6010,13 +6029,14 @@ function attachSubscriptionsEvents(){
   document.querySelectorAll('[data-sub-company-filter]').forEach(b=>{
     b.addEventListener('click', ()=>{ state.subFilter.company = b.dataset.subCompanyFilter; render(); });
   });
-  const categoryF = document.getElementById('subFilterCategory'); if(categoryF) categoryF.addEventListener('change', ()=>{ state.subFilter.category = categoryF.value; render(); });
-  const statusF = document.getElementById('subFilterStatus'); if(statusF) statusF.addEventListener('change', ()=>{ state.subFilter.status = statusF.value; render(); });
-  const cycleF = document.getElementById('subFilterCycle'); if(cycleF) cycleF.addEventListener('change', ()=>{ state.subFilter.cycle = cycleF.value; render(); });
+  const categoryF = document.getElementById('subFilterCategory'); if(categoryF) categoryF.addEventListener('change', ()=>{ state.subFilter.category = categoryF.value; state.subQuickFilter = ''; render(); });
+  const statusF = document.getElementById('subFilterStatus'); if(statusF) statusF.addEventListener('change', ()=>{ state.subFilter.status = statusF.value; state.subQuickFilter = ''; render(); });
+  const cycleF = document.getElementById('subFilterCycle'); if(cycleF) cycleF.addEventListener('change', ()=>{ state.subFilter.cycle = cycleF.value; state.subQuickFilter = ''; render(); });
   const sortF = document.getElementById('subSortField'); if(sortF) sortF.addEventListener('change', ()=>{ state.subSort.field = sortF.value; render(); });
-  const dataInicioF = document.getElementById('subFilterDataInicio'); if(dataInicioF) dataInicioF.addEventListener('change', ()=>{ state.subFilter.dataInicio = dataInicioF.value; render(); });
-  const dataFimF = document.getElementById('subFilterDataFim'); if(dataFimF) dataFimF.addEventListener('change', ()=>{ state.subFilter.dataFim = dataFimF.value; render(); });
-  const dataClearBtn = document.getElementById('subFilterDataClear'); if(dataClearBtn) dataClearBtn.addEventListener('click', ()=>{ state.subFilter.dataInicio=''; state.subFilter.dataFim=''; render(); });
+  const dataInicioF = document.getElementById('subFilterDataInicio'); if(dataInicioF) dataInicioF.addEventListener('change', ()=>{ state.subFilter.periodoAuto = false; state.subFilter.dataInicio = dataInicioF.value; render(); });
+  const dataFimF = document.getElementById('subFilterDataFim'); if(dataFimF) dataFimF.addEventListener('change', ()=>{ state.subFilter.periodoAuto = false; state.subFilter.dataFim = dataFimF.value; render(); });
+  const mesAtualBtn = document.getElementById('subFilterMesAtual'); if(mesAtualBtn) mesAtualBtn.addEventListener('click', ()=>{ state.subFilter.periodoAuto = true; render(); });
+  const dataClearBtn = document.getElementById('subFilterDataClear'); if(dataClearBtn) dataClearBtn.addEventListener('click', ()=>{ state.subFilter.periodoAuto = false; state.subFilter.dataInicio=''; state.subFilter.dataFim=''; render(); });
   document.querySelectorAll('[data-sub-quick]').forEach(b=>{
     b.addEventListener('click', ()=>{ state.subQuickFilter = b.dataset.subQuick; render(); });
   });
