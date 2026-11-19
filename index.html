@@ -5112,6 +5112,29 @@ function subscriptionsFiltered(quickOverride){
   return list;
 }
 function subQuickCount(quick){ return subscriptionsFiltered(quick).length; }
+// Resumo dos cards do topo com os mesmos filtros da tela. Os cards
+// "Assinaturas ativas" e "Vencidas" contam exatamente o que as abas
+// "Ativas" e "Vencidas" mostram, para os números baterem.
+function subSummaryForScreen(){
+  subAplicarPeriodoAuto();
+  const f = state.subFilter;
+  const base = state.subscriptions.filter(s=>
+    (f.company==='todas' || s.grupo===f.company) &&
+    (f.category==='todas' || s.categoria===f.category) &&
+    (f.cycle==='todas' || s.ciclo===f.cycle));
+  const summary = subscriptionsSummary(base, f);
+  const linha = (s, tipo)=>({sub:s, subId:s.id, data:s.dataVencimento, valor:Number(s.valor)||0, tipo});
+  const ativas = subscriptionsFiltered('ativas');
+  const vencidas = subscriptionsFiltered('vencidas');
+  summary.ativasCount = ativas.length;
+  summary.detalhes.ativas = ativas.map(s=>linha(s, subStatusMeta(subEffectiveStatus(s)).label));
+  summary.vencidasPendentes = vencidas.length;
+  summary.detalhes.vencidasPendentes = vencidas.map(s=>{
+    const d = subDaysUntilDue(s);
+    return linha(s, d===null ? 'Vencida' : `Vencida há ${Math.abs(d)} dia(s)`);
+  });
+  return summary;
+}
 // Nome da aba ativa, para a linha de total no fim da tabela.
 function subQuickLabel(quick){
   if(quick && quick.startsWith('ciclo_')) return subCycleMeta(quick.slice(6)).label;
@@ -5122,11 +5145,7 @@ function subscriptionsTemplate(){
   if(state.subQuickFilter==='proximas') state.subQuickFilter = 'vencidas'; // aba "Vencendo em 30 dias" retirada
   const list = subscriptionsFiltered();
   const f = state.subFilter;
-  const subsForSummary = state.subscriptions.filter(s=>
-    (f.company==='todas' || s.grupo===f.company) &&
-    (f.category==='todas' || s.categoria===f.category) &&
-    (f.cycle==='todas' || s.ciclo===f.cycle));
-  const summary = subscriptionsSummary(subsForSummary, f);
+  const summary = subSummaryForScreen();
   return `
     <div class="sub-search-top">
       ${f.search ? `<span class="sub-search-count">${list.length} resultado(s)</span>` : ''}
@@ -5143,7 +5162,6 @@ function subscriptionsTemplate(){
       <div class="fin-summary-card" data-sub-card="custoAnual"><div class="fsc-label">Custo anual estimado</div><div class="fsc-value">${fmtBRL(summary.custoAnual)}</div><div class="fsc-hint">ver lançamentos</div></div>
       <div class="fin-summary-card" data-sub-card="ativas"><div class="fsc-label">Assinaturas ativas</div><div class="fsc-value">${summary.ativasCount}</div><div class="fsc-hint">ver lançamentos</div></div>
       <div class="fin-summary-card" data-sub-card="vencidasPendentes"><div class="fsc-label">Vencidas</div><div class="fsc-value" style="color:var(--red);">${summary.vencidasPendentes}</div><div class="fsc-hint">ver lançamentos</div></div>
-      <div class="fin-summary-card" data-sub-card="proximosVencimentos"><div class="fsc-label">Vencem em 30 dias</div><div class="fsc-value" style="color:#c9821f;">${summary.proximosVencimentos}</div><div class="fsc-hint">ver lançamentos</div></div>
       <div class="fin-summary-card" data-sub-card="totalDesembolsado"><div class="fsc-label">Total desembolsado${(f.dataInicio||f.dataFim)?' (período)':''}</div><div class="fsc-value">${fmtBRL(summary.totalDesembolsado)}</div><div class="fsc-hint">ver lançamentos</div></div>
     </div>
 
@@ -5305,7 +5323,8 @@ function openSubscriptionModal(existing){
           const effStatus = subEffectiveStatus(existing);
           const sm = subStatusMeta(effStatus);
           const canMarkPaid = !['cancelada','pausada'].includes(effStatus);
-          const history = Array.isArray(existing.historicoPagamentos) ? existing.historicoPagamentos.slice().reverse() : [];
+          // guarda a posição original (idx) para editar/excluir o lançamento certo
+          const history = Array.isArray(existing.historicoPagamentos) ? existing.historicoPagamentos.map((p,idx)=>({...p, idx})).reverse() : [];
           return `
           <div class="fin-summary-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;">
             <div>
@@ -5317,9 +5336,12 @@ function openSubscriptionModal(existing){
           ${history.length ? `
           <div class="field">
             <label>Histórico de pagamentos</label>
-            <div class="check-list" style="max-height:120px;">
-              ${history.map(p=>`<div class="check-item" style="cursor:default;"><span>${icon('check',13)}</span><span>Pago em ${formatDateBR(p.data)} — referente ao vencimento de ${p.vencimentoReferente?formatDateBR(p.vencimentoReferente):'—'} — ${fmtBRL(p.valor)}</span></div>`).join('')}
+            <div class="check-list" style="max-height:200px;">
+              ${history.map(p=>`<div class="check-item" style="cursor:default;align-items:center;"><span>${icon('check',13)}</span><span style="flex:1;">Pago em ${formatDateBR(p.data)} — referente ao vencimento de ${p.vencimentoReferente?formatDateBR(p.vencimentoReferente):'—'} — ${fmtBRL(p.valor)}</span>
+                <button type="button" class="btn btn-icon" data-hist-edit="${p.idx}" title="Corrigir data ou valor deste pagamento">${icon('edit',13)}</button>
+                <button type="button" class="btn btn-icon" data-hist-del="${p.idx}" title="Excluir este pagamento" style="color:var(--red);border-color:#f1c9c9;">${icon('trash',13)}</button></div>`).join('')}
             </div>
+            <div class="hint-text">Use o lápis para corrigir a data ou o valor de um pagamento.</div>
           </div>` : ''}
           `;
         })() : ''}
@@ -5393,6 +5415,10 @@ function openSubscriptionModal(existing){
   document.getElementById('subModalBackdrop').addEventListener('click', e=>{ if(e.target.id==='subModalBackdrop') close(); });
   const payBtn = document.getElementById('subModalPayBtn');
   if(payBtn) payBtn.addEventListener('click', ()=>{ close(); openMarkPaidModal(existing); });
+  // ao fechar a edição do pagamento, volta para esta assinatura
+  const reabrir = ()=>{ const atual = state.subscriptions.find(x=>x.id===existing.id); if(atual) openSubscriptionModal(atual); };
+  document.querySelectorAll('[data-hist-edit]').forEach(b=>b.addEventListener('click', ()=>openEditPaymentModal(existing.id, Number(b.dataset.histEdit), reabrir)));
+  document.querySelectorAll('[data-hist-del]').forEach(b=>b.addEventListener('click', ()=>openDeletePaymentModal(existing.id, Number(b.dataset.histDel), reabrir)));
   document.getElementById('subSenhaToggle').addEventListener('click', ()=>{
     const f = document.getElementById('subSenha');
     f.type = f.type==='password' ? 'text' : 'password';
@@ -5523,13 +5549,14 @@ function openEditPaymentModal(subId, pagIdx, voltarPara){
     </div>
   </div>`;
   document.getElementById('modalRoot').innerHTML = html;
-  const voltar = ()=>{ if(voltarPara) openSubDetailModal(voltarPara); else document.getElementById('modalRoot').innerHTML=''; };
+  const voltar = ()=>{ if(typeof voltarPara==='function') voltarPara(); else if(voltarPara) openSubDetailModal(voltarPara); else document.getElementById('modalRoot').innerHTML=''; };
   document.getElementById('pagEditClose').addEventListener('click', voltar);
   document.getElementById('pagEditCancel').addEventListener('click', voltar);
   document.getElementById('pagEditBackdrop').addEventListener('click', e=>{ if(e.target.id==='pagEditBackdrop') voltar(); });
   document.getElementById('pagEditSave').addEventListener('click', async ()=>{
     p.data = document.getElementById('pagEditData').value || p.data;
     p.valor = Number(document.getElementById('pagEditValor').value) || 0;
+    s.historicoPagamentos.sort((a,b)=> (a.data||'') < (b.data||'') ? -1 : (a.data||'') > (b.data||'') ? 1 : 0);
     subSyncUltimoPagamento(s);
     await saveSubscriptions();
     toast('Pagamento atualizado.');
@@ -5568,7 +5595,7 @@ function openDeletePaymentModal(subId, pagIdx, voltarPara){
     </div>
   </div>`;
   document.getElementById('modalRoot').innerHTML = html;
-  const voltar = ()=>{ if(voltarPara) openSubDetailModal(voltarPara); else document.getElementById('modalRoot').innerHTML=''; };
+  const voltar = ()=>{ if(typeof voltarPara==='function') voltarPara(); else if(voltarPara) openSubDetailModal(voltarPara); else document.getElementById('modalRoot').innerHTML=''; };
   document.getElementById('pagDelClose').addEventListener('click', voltar);
   document.getElementById('pagDelCancel').addEventListener('click', voltar);
   document.getElementById('pagDelBackdrop').addEventListener('click', e=>{ if(e.target.id==='pagDelBackdrop') voltar(); });
@@ -5637,7 +5664,7 @@ function openDedupModal(extras, voltarPara){
     </div>
   </div>`;
   document.getElementById('modalRoot').innerHTML = html;
-  const voltar = ()=>{ if(voltarPara) openSubDetailModal(voltarPara); else document.getElementById('modalRoot').innerHTML=''; };
+  const voltar = ()=>{ if(typeof voltarPara==='function') voltarPara(); else if(voltarPara) openSubDetailModal(voltarPara); else document.getElementById('modalRoot').innerHTML=''; };
   document.getElementById('dedupClose').addEventListener('click', voltar);
   document.getElementById('dedupCancel').addEventListener('click', voltar);
   document.getElementById('dedupBackdrop').addEventListener('click', e=>{ if(e.target.id==='dedupBackdrop') voltar(); });
@@ -5915,8 +5942,7 @@ const SUB_CARD_TITLES = {
 // usando os mesmos filtros de empresa/período que já estão na tela.
 function openSubDetailModal(key){
   const f = state.subFilter;
-  const base = f.company==='todas' ? state.subscriptions : state.subscriptions.filter(s=>s.grupo===f.company);
-  const summary = subscriptionsSummary(base, f);
+  const summary = subSummaryForScreen();
   const rows = (summary.detalhes && summary.detalhes[key]) || [];
   const contagem = ['ativas','vencidasPendentes','proximosVencimentos'].includes(key);
   const total = rows.reduce((sum,r)=>sum+(Number(r.valor)||0), 0);
